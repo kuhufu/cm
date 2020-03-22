@@ -199,6 +199,10 @@ func (srv *Server) HandleWriter(conn *Conn) {
 			if err != nil {
 				return
 			}
+		case data := <-conn.outBytesChan: //多播专用chan
+			if _, err = conn.Write(data); err != nil {
+				return
+			}
 		}
 	}
 }
@@ -221,16 +225,16 @@ func (srv *Server) PushToConn(connId string, data []byte) error {
 
 //推送到设备组
 func (srv *Server) PushToDeviceGroup(userId string, data []byte) error {
-	msg := protocol.GetPoolMsg()
-	msg.SetBody(data).SetCmd(protocol.CmdServerPush)
+	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(protocol.CmdServerPush)
+	data = msg.Encode()
+	protocol.FreePoolMsg(msg)
 
 	if group, ok := srv.cm.GetDeviceGroup(userId); ok {
 		for _, conn := range group {
-			conn.EnterOutMsg(msg)
+			conn.EnterOutBytes(data)
 		}
 	} else {
 		logger.Printf("连接不存在或已关闭, userId: %v", userId)
-		protocol.FreePoolMsg(msg)
 		return ErrConnNotExist
 	}
 
@@ -239,13 +243,14 @@ func (srv *Server) PushToDeviceGroup(userId string, data []byte) error {
 
 //推送到群组
 func (srv *Server) PushToGroup(groupId string, data []byte) {
-	msg := protocol.GetPoolMsg()
-	msg.SetBody(data).SetCmd(protocol.CmdServerPush)
+	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(protocol.CmdServerPush)
+	data = msg.Encode()
+	protocol.FreePoolMsg(msg)
 
 	if g, ok := srv.cm.GetGroup(groupId); ok {
 		for _, deviceGroup := range g {
 			for _, conn := range deviceGroup {
-				conn.EnterOutMsg(msg)
+				conn.EnterOutBytes(data)
 			}
 		}
 	}

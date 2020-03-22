@@ -58,65 +58,6 @@ func (c Cmd) String() string {
 //bodyLen     uint32
 type Header [HeaderLen]byte
 
-func newHeader() Header {
-	return Header{}
-}
-
-func (h *Header) String() string {
-	return fmt.Sprintf(
-		`"magicNumber":%v, "headerLen":%v, "cmd":%v, "requestId":%v, bodyLen":%v`,
-		h.MagicNumber(),
-		h.HeaderLen(),
-		h.Cmd(),
-		h.RequestId(),
-		h.BodyLen(),
-	)
-}
-
-func (h *Header) SetMagicNumber(n uint32) *Header {
-	binary.BigEndian.PutUint32(h[0:4], n)
-	return h
-}
-
-func (h *Header) SetHeaderLen(n uint32) *Header {
-	binary.BigEndian.PutUint32(h[4:8], n)
-	return h
-}
-
-func (h *Header) SetCmd(cmd Cmd) *Header {
-	binary.BigEndian.PutUint32(h[8:12], uint32(cmd))
-	return h
-}
-
-func (h *Header) SetRequestId(n uint32) *Header {
-	binary.BigEndian.PutUint32(h[12:16], n)
-	return h
-}
-
-func (h *Header) setBodyLen(n uint32) {
-	binary.BigEndian.PutUint32(h[16:20], n)
-}
-
-func (h *Header) MagicNumber() uint32 {
-	return binary.BigEndian.Uint32(h[0:4])
-}
-
-func (h *Header) HeaderLen() uint32 {
-	return binary.BigEndian.Uint32(h[4:8])
-}
-
-func (h *Header) Cmd() Cmd {
-	return Cmd(binary.BigEndian.Uint32(h[8:12]))
-}
-
-func (h *Header) RequestId() uint32 {
-	return binary.BigEndian.Uint32(h[12:16])
-}
-
-func (h *Header) BodyLen() uint32 {
-	return binary.BigEndian.Uint32(h[16:20])
-}
-
 type Message struct {
 	Header
 	body []byte
@@ -124,8 +65,7 @@ type Message struct {
 
 func NewMessage() *Message {
 	return &Message{
-		Header: newHeader(),
-		body:   nil,
+		body: nil,
 	}
 }
 
@@ -144,10 +84,66 @@ func NewMessageWithDefault() *Message {
 	return message
 }
 
+
+func (m *Message) HeaderString() string {
+	return fmt.Sprintf(
+		`"magicNumber":%v, "headerLen":%v, "cmd":%v, "requestId":%v, bodyLen":%v`,
+		m.MagicNumber(),
+		m.HeaderLen(),
+		m.Cmd(),
+		m.RequestId(),
+		m.BodyLen(),
+	)
+}
+
+func (m *Message) SetMagicNumber(n uint32) *Message {
+	binary.BigEndian.PutUint32(m.Header[0:4], n)
+	return m
+}
+
+func (m *Message) SetHeaderLen(n uint32) *Message {
+	binary.BigEndian.PutUint32(m.Header[4:8], n)
+	return m
+}
+
+func (m *Message) SetCmd(cmd Cmd) *Message {
+	binary.BigEndian.PutUint32(m.Header[8:12], uint32(cmd))
+	return m
+}
+
+func (m *Message) SetRequestId(n uint32) *Message {
+	binary.BigEndian.PutUint32(m.Header[12:16], n)
+	return m
+}
+
+func (m *Message) setBodyLen(n uint32) {
+	binary.BigEndian.PutUint32(m.Header[16:20], n)
+}
+
+func (m *Message) MagicNumber() uint32 {
+	return binary.BigEndian.Uint32(m.Header[0:4])
+}
+
+func (m *Message) HeaderLen() uint32 {
+	return binary.BigEndian.Uint32(m.Header[4:8])
+}
+
+func (m *Message) Cmd() Cmd {
+	return Cmd(binary.BigEndian.Uint32(m.Header[8:12]))
+}
+
+func (m *Message) RequestId() uint32 {
+	return binary.BigEndian.Uint32(m.Header[12:16])
+}
+
+func (m *Message) BodyLen() uint32 {
+	return binary.BigEndian.Uint32(m.Header[16:20])
+}
+
 func (m *Message) String() string {
 	return fmt.Sprintf(
 		`%v, "body":%s`,
-		m.Header.String(),
+		m.HeaderString(),
 		m.Body(),
 	)
 }
