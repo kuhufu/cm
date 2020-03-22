@@ -5,27 +5,27 @@ import (
 	"time"
 )
 
-type optFunc func(s *Server)
+type Option func(s *Server)
 
-func WithAuthTimeout(duration time.Duration) optFunc {
+func WithAuthTimeout(duration time.Duration) Option {
 	return func(s *Server) {
 		s.AuthTimeout = duration
 	}
 }
 
-func WithHeartbeatTimeout(duration time.Duration) optFunc {
+func WithHeartbeatTimeout(duration time.Duration) Option {
 	return func(s *Server) {
 		s.HeartbeatTimeout = duration
 	}
 }
 
-func WithMessageHandler(handler MessageHandler) optFunc {
+func WithMessageHandler(handler MessageHandler) Option {
 	return func(s *Server) {
 		s.messageHandler = handler
 	}
 }
 
-func WithDebugLog() optFunc {
+func WithDebugLog() Option {
 	return func(s *Server) {
 		logger.Init(logger.DebugLevel)
 	}

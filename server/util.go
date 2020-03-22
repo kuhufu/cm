@@ -2,7 +2,6 @@ package server
 
 import (
 	"github.com/kuhufu/cm/protocol"
-	"time"
 )
 
 func CreateReplyMessage(srcMsg *protocol.Message, data []byte) *protocol.Message {
@@ -14,9 +13,9 @@ func CreateReplyMessage(srcMsg *protocol.Message, data []byte) *protocol.Message
 type AuthReply struct {
 	Ok       bool
 	ConnId   string //不能为空，否则panic
+	UserId   string
 	GroupIds []string
 	Data     []byte
-	AuthTime time.Time
-	Extends  map[interface{}]interface{}
+	Metadata map[interface{}]interface{}
 	err      error
 }

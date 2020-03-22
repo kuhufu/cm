@@ -3,14 +3,15 @@ package server
 import (
 	bytes2 "bytes"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/kuhufu/cm/protocol"
 	"io/ioutil"
 	"log"
 	"sync"
 	"testing"
 	"time"
 	"unsafe"
+
+	"github.com/gorilla/websocket"
+	"github.com/kuhufu/cm/protocol"
 )
 
 func Test(t *testing.T) {
@@ -29,8 +30,9 @@ func (h Handle) Auth(data []byte) *AuthReply {
 	return &AuthReply{
 		Ok:       true,
 		ConnId:   "22",
+		UserId:   "u:22",
+		GroupIds: []string{"g1", "g2"},
 		Data:     []byte("hello"),
-		AuthTime: time.Now(),
 	}
 }
 
@@ -59,7 +61,7 @@ func TestWsUpgrade(t *testing.T) {
 	//development 123.56.103.77:7090
 	//production kfws.qiyejiaoyou.com:7090
 	f := func() {
-		conn, response, err := websocket.DefaultDialer.Dial("ws://123.56.103.77:7090/ws", nil)
+		conn, response, err := websocket.DefaultDialer.Dial("ws://localhost:8080/ws", nil)
 		if err != nil {
 			t.Error(err)
 			return
