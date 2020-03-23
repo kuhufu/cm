@@ -1,4 +1,4 @@
-package server
+package cm
 
 import (
 	"fmt"
@@ -12,12 +12,12 @@ func Test_add(t *testing.T) {
 		userId := fmt.Sprintf("u:%v", i)
 		cm.AddOrReplaceSync(fmt.Sprintf("u:%v:web", i), &Conn{
 			Id:     fmt.Sprintf("u:%v:web", i),
-			userId: userId,
+			UserId: userId,
 		})
 
 		cm.AddOrReplaceSync(fmt.Sprintf("u:%v:android", i), &Conn{
 			Id:     fmt.Sprintf("u:%v:android", i),
-			userId: userId,
+			UserId: userId,
 		})
 
 		cm.AddToGroup(userId, []string{"g1", "g2"}, )

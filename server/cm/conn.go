@@ -1,4 +1,4 @@
-package server
+package cm
 
 import (
 	"fmt"
@@ -13,13 +13,13 @@ import (
 type Conn struct {
 	net.Conn
 	Id           string
-	userId       string
+	UserId       string
 	outMsgChan   chan *protocol.Message
 	outBytesChan chan []byte //广播使用，避免消息多次encode
 	exitChan     chan struct{}
 
 	closeOnce sync.Once //保证连接只关闭一次
-	version   string    //创建连接时的版本号
+	Version   string    //创建连接时的版本号
 	Metadata  sync.Map  //拓展信息可自由添加
 }
 
@@ -34,12 +34,12 @@ func NewConn(conn net.Conn) *Conn {
 	}
 
 	//创建时间+内存地址，本地测试中创建时间可能会相同。在创建时间相同的情况下，内存地址必不相同
-	c.version = fmt.Sprintf("%x-%x", time.Now().UnixNano(), uintptr(unsafe.Pointer(c)))
+	c.Version = fmt.Sprintf("%x-%x", time.Now().UnixNano(), uintptr(unsafe.Pointer(c)))
 	return c
 }
 
 func (conn *Conn) Init(userId, connId string) {
-	conn.userId = userId
+	conn.UserId = userId
 	conn.Id = connId
 }
 
@@ -85,7 +85,7 @@ func (conn *Conn) WaitOutMsg() <-chan *protocol.Message {
 	return conn.outMsgChan
 }
 
-func (conn *Conn) WaitOutData() <-chan []byte {
+func (conn *Conn) WaitOutBytes() <-chan []byte {
 	return conn.outBytesChan
 }
 

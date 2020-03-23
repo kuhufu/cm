@@ -8,6 +8,7 @@ import (
 
 	logger "github.com/kuhufu/cm/logger"
 	"github.com/kuhufu/cm/protocol"
+	"github.com/kuhufu/cm/server/cm"
 	"github.com/kuhufu/cm/server/listener"
 )
 
@@ -16,15 +17,15 @@ const DefaultHeartBeatTimeout = time.Second * 90
 
 type MessageHandler interface {
 	Auth(data []byte) *AuthReply
-	PushIn(srcConn *Conn, data []byte) (resp []byte)
-	OnConnClose(conn *Conn)
+	PushIn(srcConn *cm.Conn, data []byte) (resp []byte)
+	OnConnClose(conn *cm.Conn)
 }
 
 type Server struct {
 	AuthTimeout      time.Duration
 	HeartbeatTimeout time.Duration
 
-	cm             *ConnManager
+	cm             *cm.ConnManager
 	addr           string
 	messageHandler MessageHandler
 
@@ -33,7 +34,7 @@ type Server struct {
 
 func NewServer(opts ...Option) *Server {
 	s := &Server{
-		cm:               NewConnManager(),
+		cm:               cm.NewConnManager(),
 		AuthTimeout:      DefaultAuthTimeout,
 		HeartbeatTimeout: DefaultHeartBeatTimeout,
 	}
@@ -65,11 +66,11 @@ func (srv *Server) Run(network, addr string) error {
 			return err
 		}
 		logger.Printf("new connect: %v", conn.RemoteAddr())
-		go srv.Handle(NewConn(conn))
+		go srv.Handle(cm.NewConn(conn))
 	}
 }
 
-func (srv *Server) Handle(conn *Conn) {
+func (srv *Server) Handle(conn *cm.Conn) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -127,7 +128,7 @@ authOk:
 	srv.HandleReader(conn)
 }
 
-func (srv *Server) HandleReader(conn *Conn) {
+func (srv *Server) HandleReader(conn *cm.Conn) {
 	var err error
 	var heartbeatTimer *time.Timer
 
@@ -136,9 +137,9 @@ func (srv *Server) HandleReader(conn *Conn) {
 		heartbeatTimer.Stop()
 
 		if err != nil {
-			logger.Printf("connId: %v:%v, reader出错: %v", conn.Id, conn.version, err)
+			logger.Printf("connId: %v:%v, reader出错: %v", conn.Id, conn.Version, err)
 		} else {
-			logger.Printf("connId: %v:%v, reader退出", conn.Id, conn.version)
+			logger.Printf("connId: %v:%v, reader退出", conn.Id, conn.Version)
 		}
 	}()
 
@@ -176,14 +177,14 @@ func (srv *Server) HandleReader(conn *Conn) {
 	}
 }
 
-func (srv *Server) HandleWriter(conn *Conn) {
+func (srv *Server) HandleWriter(conn *cm.Conn) {
 	var err error
 	defer func() {
 		srv.cm.RemoveSync(conn)
 		if err != nil {
-			logger.Printf("connId: %v:%v, writer出错: %v", conn.Id, conn.version, err)
+			logger.Printf("connId: %v:%v, writer出错: %v", conn.Id, conn.Version, err)
 		} else {
-			logger.Printf("connId: %v:%v, writer退出", conn.Id, conn.version)
+			logger.Printf("connId: %v:%v, writer退出", conn.Id, conn.Version)
 		}
 	}()
 
@@ -199,7 +200,7 @@ func (srv *Server) HandleWriter(conn *Conn) {
 			if err != nil {
 				return
 			}
-		case data := <-conn.outBytesChan: //多播专用chan
+		case data := <-conn.WaitOutBytes(): //多播专用chan
 			if _, err = conn.Write(data); err != nil {
 				return
 			}
@@ -230,9 +231,9 @@ func (srv *Server) PushToDeviceGroup(userId string, data []byte) error {
 	protocol.FreePoolMsg(msg)
 
 	if group, ok := srv.cm.GetDeviceGroup(userId); ok {
-		for _, conn := range group {
+		group.ForEach(func(conn *cm.Conn) {
 			conn.EnterOutBytes(data)
-		}
+		})
 	} else {
 		logger.Printf("连接不存在或已关闭, userId: %v", userId)
 		return ErrConnNotExist
@@ -248,27 +249,27 @@ func (srv *Server) PushToGroup(groupId string, data []byte) {
 	protocol.FreePoolMsg(msg)
 
 	if g, ok := srv.cm.GetGroup(groupId); ok {
-		for _, deviceGroup := range g {
-			for _, conn := range deviceGroup {
+		g.ForEach(func(id cm.UserId, g *cm.DeviceGroup) {
+			g.ForEach(func(conn *cm.Conn) {
 				conn.EnterOutBytes(data)
-			}
-		}
+			})
+		})
 	}
 }
 
-func (srv *Server) AddConn(conn *Conn, userId, connId string, groupIds []string) {
+func (srv *Server) AddConn(conn *cm.Conn, userId, connId string, groupIds []string) {
 	if connId == "" {
 		panic("connId cannot be empty")
 	}
 
 	conn.Init(userId, connId)
 
-	logger.Printf("newConn: %v:%v", conn.Id, conn.version)
+	logger.Printf("newConn: %v:%v", conn.Id, conn.Version)
 
-	var oldConn *Conn
+	var oldConn *cm.Conn
 	srv.cm.WithSync(func() {
 		oldConn = srv.cm.AddOrReplace(connId, conn)
-		srv.cm.AddToGroup(conn.userId, groupIds)
+		srv.cm.AddToGroup(conn.UserId, groupIds)
 	})
 
 	if oldConn != nil {
@@ -276,7 +277,7 @@ func (srv *Server) AddConn(conn *Conn, userId, connId string, groupIds []string)
 	}
 }
 
-func (srv *Server) GetConn(connId string) (*Conn, bool) {
+func (srv *Server) GetConn(connId string) (*cm.Conn, bool) {
 	conn, ok := srv.cm.GetSync(connId)
 	if !ok {
 		return nil, false

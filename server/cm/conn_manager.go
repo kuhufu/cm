@@ -1,4 +1,4 @@
-package server
+package cm
 
 import "sync"
 
@@ -6,41 +6,47 @@ type GroupId = string
 type ConnId = string
 type UserId = string
 
-type DeviceGroup = map[ConnId]*Conn
-type Group = map[UserId]DeviceGroup
+type DeviceGroup struct {
+	UserId UserId
+	inner  map[ConnId]*Conn
+	mu     *sync.RWMutex
+}
+
+type Group struct {
+	inner map[UserId]*DeviceGroup
+	mu    *sync.RWMutex
+}
 
 type ConnManager struct {
-	connMap map[*Conn]ConnId
-	IdMap   map[ConnId]*Conn
+	IdMap map[ConnId]*Conn
 
-	userDevice map[UserId]DeviceGroup
+	userDevice map[UserId]*DeviceGroup
 
-	group map[GroupId]Group
+	groups map[GroupId]*Group
 
 	mu *sync.RWMutex
 }
 
 func NewConnManager() *ConnManager {
 	return &ConnManager{
-		connMap: map[*Conn]ConnId{},
-		IdMap:   map[ConnId]*Conn{},
+		IdMap: map[ConnId]*Conn{},
 
-		userDevice: map[UserId]DeviceGroup{},
-		group:      map[GroupId]map[UserId]DeviceGroup{},
+		userDevice: map[UserId]*DeviceGroup{},
+		groups:     map[GroupId]*Group{},
 		mu:         &sync.RWMutex{},
 	}
 }
 
-func (m *ConnManager) GetDeviceGroup(userId UserId) (DeviceGroup, bool) {
+func (m *ConnManager) GetDeviceGroup(userId UserId) (*DeviceGroup, bool) {
 	group, ok := m.userDevice[userId]
 	return group, ok
 }
 
-func (m *ConnManager) getOrCreateDeviceGroup(userId UserId) DeviceGroup {
-	var group DeviceGroup
+func (m *ConnManager) getOrCreateDeviceGroup(userId UserId) *DeviceGroup {
+	var group *DeviceGroup
 	var ok bool
 	if group, ok = m.GetDeviceGroup(userId); !ok {
-		group = DeviceGroup{}
+		group = NewDeviceGroup(userId)
 		m.userDevice[userId] = group
 	}
 
@@ -49,15 +55,20 @@ func (m *ConnManager) getOrCreateDeviceGroup(userId UserId) DeviceGroup {
 
 //添加到设备组
 func (m *ConnManager) AddToDeviceGroup(conn *Conn) {
-	deviceGroup := m.getOrCreateDeviceGroup(conn.userId)
-	deviceGroup[conn.Id] = conn
+	deviceGroup := m.getOrCreateDeviceGroup(conn.UserId)
+	deviceGroup.Add(conn.Id, conn)
 }
 
 //从设备组移除
 func (m *ConnManager) RemoveFromDeviceGroup(conn *Conn) {
-	if deviceGroup, ok := m.GetDeviceGroup(conn.userId); ok {
-		if deviceGroup[conn.Id] == conn {
-			delete(deviceGroup, conn.Id)
+	if deviceGroup, ok := m.GetDeviceGroup(conn.UserId); ok {
+		if c, ok := deviceGroup.Get(conn.Id); ok && c == conn {
+			deviceGroup.Del(conn.Id)
+		}
+
+		//如果设备组为空则删除设备组
+		if deviceGroup.Size() == 0 {
+			delete(m.userDevice, conn.UserId)
 		}
 	}
 }
@@ -65,7 +76,7 @@ func (m *ConnManager) RemoveFromDeviceGroup(conn *Conn) {
 //添加到群组
 func (m *ConnManager) AddToGroup(userId UserId, groupIds []string) {
 	for _, groupId := range groupIds {
-		m.getOrCreateGroup(groupId)[userId] = m.userDevice[userId]
+		m.getOrCreateGroup(groupId).Add(userId, m.userDevice[userId])
 	}
 }
 
@@ -73,23 +84,23 @@ func (m *ConnManager) AddToGroup(userId UserId, groupIds []string) {
 func (m *ConnManager) RemoveFromGroup(userId UserId, groupIds []string) {
 	for _, groupId := range groupIds {
 		if group, ok := m.GetGroup(groupId); ok {
-			delete(group, userId)
+			group.Del(userId)
 		}
 	}
 }
 
-func (m *ConnManager) GetGroup(id GroupId) (Group, bool) {
-	group, ok := m.group[id]
+func (m *ConnManager) GetGroup(id GroupId) (*Group, bool) {
+	group, ok := m.groups[id]
 
 	return group, ok
 }
 
-func (m *ConnManager) getOrCreateGroup(id GroupId) Group {
-	var group Group
+func (m *ConnManager) getOrCreateGroup(id GroupId) *Group {
+	var group *Group
 	var ok bool
 	if group, ok = m.GetGroup(id); !ok {
-		group = map[UserId]DeviceGroup{}
-		m.group[id] = group
+		group = NewGroup()
+		m.groups[id] = group
 	}
 
 	return group
@@ -103,7 +114,6 @@ func (m *ConnManager) AddOrReplace(connId ConnId, conn *Conn) *Conn {
 	}
 
 	m.IdMap[connId] = conn
-	m.connMap[conn] = connId
 
 	m.AddToDeviceGroup(conn)
 
@@ -111,9 +121,8 @@ func (m *ConnManager) AddOrReplace(connId ConnId, conn *Conn) *Conn {
 }
 
 func (m *ConnManager) Remove(conn *Conn) {
-	if connId, ok := m.connMap[conn]; ok {
-		delete(m.connMap, conn)
-		delete(m.IdMap, connId)
+	if c, ok := m.IdMap[conn.Id]; ok && c == conn {
+		delete(m.IdMap, conn.Id)
 		m.RemoveFromDeviceGroup(conn)
 	}
 }
