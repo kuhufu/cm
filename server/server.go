@@ -133,7 +133,7 @@ func (srv *Server) HandleReader(conn *cm.Conn) {
 	var heartbeatTimer *time.Timer
 
 	defer func() { //在defer里面关闭连接
-		srv.cm.RemoveSync(conn)
+		srv.cm.RemoveConn(conn)
 		heartbeatTimer.Stop()
 
 		if err != nil {
@@ -180,7 +180,7 @@ func (srv *Server) HandleReader(conn *cm.Conn) {
 func (srv *Server) HandleWriter(conn *cm.Conn) {
 	var err error
 	defer func() {
-		srv.cm.RemoveSync(conn)
+		srv.cm.RemoveConn(conn)
 		if err != nil {
 			logger.Printf("connId: %v:%v, writer出错: %v", conn.Id, conn.Version, err)
 		} else {
@@ -267,9 +267,9 @@ func (srv *Server) AddConn(conn *cm.Conn, userId, connId string, groupIds []stri
 	logger.Printf("newConn: %v:%v", conn.Id, conn.Version)
 
 	var oldConn *cm.Conn
-	srv.cm.WithSync(func() {
-		oldConn = srv.cm.AddOrReplace(connId, conn)
-		srv.cm.AddToGroup(conn.UserId, groupIds)
+	srv.cm.With(func() {
+		oldConn = srv.cm.AddOrReplaceSyncNo(connId, conn)
+		srv.cm.AddToGroupSyncNo(conn.UserId, groupIds)
 	})
 
 	if oldConn != nil {
@@ -278,7 +278,7 @@ func (srv *Server) AddConn(conn *cm.Conn, userId, connId string, groupIds []stri
 }
 
 func (srv *Server) GetConn(connId string) (*cm.Conn, bool) {
-	conn, ok := srv.cm.GetSync(connId)
+	conn, ok := srv.cm.GetConn(connId)
 	if !ok {
 		return nil, false
 	}

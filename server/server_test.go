@@ -4,15 +4,13 @@ import (
 	bytes2 "bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/server/cm"
 	"io/ioutil"
 	"log"
 	"testing"
 	"time"
-	"unsafe"
-
-	"github.com/gorilla/websocket"
-	"github.com/kuhufu/cm/protocol"
 )
 
 func Test(t *testing.T) {
@@ -129,10 +127,5 @@ func TestWsUpgrade(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	t1 := time.Now()
-	t2 := time.Now()
-
-	fmt.Println(uintptr(unsafe.Pointer(&t1)))
-	fmt.Println(uintptr(unsafe.Pointer(&t2)))
 
 }

@@ -2,6 +2,12 @@ package cm
 
 import "sync"
 
+type DeviceGroup struct {
+	UserId UserId
+	inner  map[ConnId]*Conn
+	mu     *sync.RWMutex
+}
+
 func NewDeviceGroup(userId UserId) *DeviceGroup {
 	return &DeviceGroup{
 		UserId: userId,
@@ -33,7 +39,7 @@ func (g *DeviceGroup) Del(id ConnId) {
 	delete(g.inner, id)
 }
 
-func (g *DeviceGroup)Size() int {
+func (g *DeviceGroup) Size() int {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 

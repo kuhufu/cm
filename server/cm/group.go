@@ -2,8 +2,15 @@ package cm
 
 import "sync"
 
-func NewGroup() *Group {
+type Group struct {
+	Id    GroupId
+	inner map[UserId]*DeviceGroup
+	mu    *sync.RWMutex
+}
+
+func NewGroup(id GroupId) *Group {
 	return &Group{
+		Id:    id,
 		inner: map[UserId]*DeviceGroup{},
 		mu:    &sync.RWMutex{},
 	}

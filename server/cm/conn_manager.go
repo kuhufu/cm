@@ -6,77 +6,38 @@ type GroupId = string
 type ConnId = string
 type UserId = string
 
-type DeviceGroup struct {
-	UserId UserId
-	inner  map[ConnId]*Conn
-	mu     *sync.RWMutex
-}
-
-type Group struct {
-	inner map[UserId]*DeviceGroup
-	mu    *sync.RWMutex
-}
-
 type ConnManager struct {
-	IdMap map[ConnId]*Conn
-
-	userDevice map[UserId]*DeviceGroup
-
-	groups map[GroupId]*Group
-
-	mu *sync.RWMutex
+	connMap      *Conns
+	deviceGroups *DeviceGroups
+	groups       *Groups
+	mu           *sync.RWMutex
 }
 
 func NewConnManager() *ConnManager {
 	return &ConnManager{
-		IdMap: map[ConnId]*Conn{},
-
-		userDevice: map[UserId]*DeviceGroup{},
-		groups:     map[GroupId]*Group{},
-		mu:         &sync.RWMutex{},
+		connMap:      NewConns(),
+		deviceGroups: NewDeviceGroups(),
+		groups:       NewGroups(),
+		mu:           &sync.RWMutex{},
 	}
 }
 
 func (m *ConnManager) GetDeviceGroup(userId UserId) (*DeviceGroup, bool) {
-	group, ok := m.userDevice[userId]
-	return group, ok
-}
-
-func (m *ConnManager) getOrCreateDeviceGroup(userId UserId) *DeviceGroup {
-	var group *DeviceGroup
-	var ok bool
-	if group, ok = m.GetDeviceGroup(userId); !ok {
-		group = NewDeviceGroup(userId)
-		m.userDevice[userId] = group
-	}
-
-	return group
-}
-
-//添加到设备组
-func (m *ConnManager) AddToDeviceGroup(conn *Conn) {
-	deviceGroup := m.getOrCreateDeviceGroup(conn.UserId)
-	deviceGroup.Add(conn.Id, conn)
-}
-
-//从设备组移除
-func (m *ConnManager) RemoveFromDeviceGroup(conn *Conn) {
-	if deviceGroup, ok := m.GetDeviceGroup(conn.UserId); ok {
-		if c, ok := deviceGroup.Get(conn.Id); ok && c == conn {
-			deviceGroup.Del(conn.Id)
-		}
-
-		//如果设备组为空则删除设备组
-		if deviceGroup.Size() == 0 {
-			delete(m.userDevice, conn.UserId)
-		}
-	}
+	return m.deviceGroups.Get(userId)
 }
 
 //添加到群组
-func (m *ConnManager) AddToGroup(userId UserId, groupIds []string) {
+func (m *ConnManager) AddToGroupSyncNo(userId UserId, groupIds []string) {
 	for _, groupId := range groupIds {
-		m.getOrCreateGroup(groupId).Add(userId, m.userDevice[userId])
+		m.groups.GetOrCreate(groupId).Add(userId, m.deviceGroups.GetOrCreate(userId))
+	}
+}
+
+func (m *ConnManager) AddToGroup(userId UserId, groupIds []string) {
+	m.mu.Lock()
+	m.mu.Unlock()
+	for _, groupId := range groupIds {
+		m.groups.GetOrCreate(groupId).Add(userId, m.deviceGroups.GetOrCreate(userId))
 	}
 }
 
@@ -90,72 +51,69 @@ func (m *ConnManager) RemoveFromGroup(userId UserId, groupIds []string) {
 }
 
 func (m *ConnManager) GetGroup(id GroupId) (*Group, bool) {
-	group, ok := m.groups[id]
-
-	return group, ok
+	return m.groups.Get(id)
 }
 
-func (m *ConnManager) getOrCreateGroup(id GroupId) *Group {
-	var group *Group
-	var ok bool
-	if group, ok = m.GetGroup(id); !ok {
-		group = NewGroup()
-		m.groups[id] = group
-	}
-
-	return group
-}
-
-func (m *ConnManager) AddOrReplace(connId ConnId, conn *Conn) *Conn {
+func (m *ConnManager) AddOrReplaceSyncNo(connId ConnId, conn *Conn) *Conn {
 	var oldConn *Conn
 	var ok bool
-	if oldConn, ok = m.IdMap[connId]; ok {
-		m.Remove(oldConn) //删除旧连接
+	if oldConn, ok = m.connMap.Get(connId); ok {
+		m.remove(oldConn) //删除旧连接
 	}
 
-	m.IdMap[connId] = conn
+	m.connMap.Add(connId, conn)
 
-	m.AddToDeviceGroup(conn)
+	m.addToDeviceGroup(conn)
 
 	return oldConn
 }
 
-func (m *ConnManager) Remove(conn *Conn) {
-	if c, ok := m.IdMap[conn.Id]; ok && c == conn {
-		delete(m.IdMap, conn.Id)
-		m.RemoveFromDeviceGroup(conn)
-	}
-}
-
-func (m *ConnManager) Get(connId ConnId) (*Conn, bool) {
-	conn, ok := m.IdMap[connId]
-
-	return conn, ok
-}
-
-func (m *ConnManager) AddOrReplaceSync(connId ConnId, conn *Conn) *Conn {
+func (m *ConnManager) AddOrReplace(connId ConnId, conn *Conn) *Conn {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.AddOrReplace(connId, conn)
+	return m.AddOrReplaceSyncNo(connId, conn)
 }
 
-func (m *ConnManager) RemoveSync(conn *Conn) {
+func (m *ConnManager) RemoveConn(conn *Conn) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.Remove(conn)
+	m.remove(conn)
 }
 
-func (m *ConnManager) GetSync(connId ConnId) (*Conn, bool) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return m.Get(connId)
+func (m *ConnManager) GetConn(connId ConnId) (*Conn, bool) {
+	return m.connMap.Get(connId)
 }
 
-func (m *ConnManager) WithSync(f func()) {
+func (m *ConnManager) With(f func()) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	f()
+}
+
+//添加到设备组
+func (m *ConnManager) addToDeviceGroup(conn *Conn) {
+	deviceGroup := m.deviceGroups.GetOrCreate(conn.UserId)
+	deviceGroup.Add(conn.Id, conn)
+}
+
+//从设备组移除
+func (m *ConnManager) removeFromDeviceGroup(conn *Conn) {
+	if deviceGroup, ok := m.deviceGroups.Get(conn.UserId); ok {
+		if c, ok := deviceGroup.Get(conn.Id); ok && c == conn {
+			deviceGroup.Del(conn.Id)
+		}
+
+		//如果设备组为空则删除设备组
+		if deviceGroup.Size() == 0 {
+			m.deviceGroups.Del(conn.UserId)
+		}
+	}
+}
+
+func (m *ConnManager) remove(conn *Conn) {
+	if m.connMap.Del(conn) {
+		m.removeFromDeviceGroup(conn)
+	}
 }

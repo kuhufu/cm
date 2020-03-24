@@ -2,28 +2,33 @@ package cm
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 )
 
 func Test_add(t *testing.T) {
 	cm := NewConnManager()
 
+	start := make(chan struct{})
+	wg := &sync.WaitGroup{}
+	groupIds := []string{"g1", "g2", "g4"}
+	wg.Add(10)
 	for i := 0; i < 10; i++ {
+		i := i
 		userId := fmt.Sprintf("u:%v", i)
-		cm.AddOrReplaceSync(fmt.Sprintf("u:%v:web", i), &Conn{
-			Id:     fmt.Sprintf("u:%v:web", i),
-			UserId: userId,
-		})
-
-		cm.AddOrReplaceSync(fmt.Sprintf("u:%v:android", i), &Conn{
-			Id:     fmt.Sprintf("u:%v:android", i),
-			UserId: userId,
-		})
-
-		cm.AddToGroup(userId, []string{"g1", "g2"}, )
+		go func() {
+			cm.With(func() {
+				cm.AddOrReplaceSyncNo(fmt.Sprintf("u:%v:web", i), &Conn{
+					Id:     fmt.Sprintf("u:%v:web", i),
+					UserId: userId,
+				})
+				cm.AddToGroupSyncNo(userId, groupIds)
+			})
+			wg.Done()
+		}()
 	}
 
-	cm.AddToGroup("u:0", []string{"g1", "g2", "g4"})
+	close(start)
 
-	t.Log("hh")
+	wg.Wait()
 }
