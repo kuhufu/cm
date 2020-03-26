@@ -10,7 +10,7 @@ type ConnManager struct {
 	connMap      *Conns
 	deviceGroups *DeviceGroups
 	groups       *Groups
-	mu           *sync.RWMutex
+	mu           sync.RWMutex
 }
 
 func NewConnManager() *ConnManager {
@@ -18,7 +18,6 @@ func NewConnManager() *ConnManager {
 		connMap:      NewConns(),
 		deviceGroups: NewDeviceGroups(),
 		groups:       NewGroups(),
-		mu:           &sync.RWMutex{},
 	}
 }
 

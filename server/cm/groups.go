@@ -4,19 +4,19 @@ import "sync"
 
 type Groups struct {
 	inner map[GroupId]*Group
-	mu    *sync.RWMutex
+	mu    sync.RWMutex
 }
 
 func NewGroups() *Groups {
 	return &Groups{
 		inner: map[GroupId]*Group{},
-		mu:    &sync.RWMutex{},
 	}
 }
 
 func (gs *Groups) Get(id GroupId) (*Group, bool) {
 	gs.mu.RLock()
 	defer gs.mu.RUnlock()
+
 	group, ok := gs.inner[id]
 	return group, ok
 }
@@ -28,6 +28,7 @@ func (gs *Groups) GetOrCreate(id GroupId) *Group {
 
 	gs.mu.Lock()
 	defer gs.mu.Unlock()
+
 	if group, ok := gs.inner[id]; ok { //双重检查锁
 		return group
 	}

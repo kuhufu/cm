@@ -4,13 +4,12 @@ import "sync"
 
 type DeviceGroups struct {
 	inner map[UserId]*DeviceGroup
-	mu    *sync.RWMutex
+	mu    sync.RWMutex
 }
 
 func NewDeviceGroups() *DeviceGroups {
 	return &DeviceGroups{
 		inner: map[UserId]*DeviceGroup{},
-		mu:    &sync.RWMutex{},
 	}
 }
 

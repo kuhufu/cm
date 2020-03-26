@@ -5,14 +5,13 @@ import "sync"
 type Group struct {
 	Id    GroupId
 	inner map[UserId]*DeviceGroup
-	mu    *sync.RWMutex
+	mu    sync.RWMutex
 }
 
 func NewGroup(id GroupId) *Group {
 	return &Group{
 		Id:    id,
 		inner: map[UserId]*DeviceGroup{},
-		mu:    &sync.RWMutex{},
 	}
 }
 
@@ -45,12 +44,13 @@ func (g *Group) Size() int {
 }
 
 func (g *Group) Items() []*DeviceGroup {
-	groups := make([]*DeviceGroup, 0, len(g.inner))
 	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	groups := make([]*DeviceGroup, 0, len(g.inner))
 	for _, g := range g.inner {
 		groups = append(groups, g)
 	}
-	g.mu.RUnlock()
 	return groups
 }
 

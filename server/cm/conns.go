@@ -4,13 +4,12 @@ import "sync"
 
 type Conns struct {
 	inner map[ConnId]*Conn
-	mu    *sync.RWMutex
+	mu    sync.RWMutex
 }
 
 func NewConns() *Conns {
 	return &Conns{
 		inner: map[ConnId]*Conn{},
-		mu:    &sync.RWMutex{},
 	}
 }
 
