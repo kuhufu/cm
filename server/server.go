@@ -193,7 +193,7 @@ func (srv *Server) WriteLoop(conn *cm.Conn) {
 		case <-conn.Exit():
 			return
 		case msg := <-conn.WaitOutMsg():
-			err = msg.WriteTo(conn)
+			_, err = msg.WriteTo(conn)
 			//不能对这个连接进行并发写，WriteTo操作不是原子的，WriteTo先写header再写body，如果对连接进行并发写，会出现错误的数据
 			//正常情况下header和body一一对应[header1,body1,header2,body2]，并发写可能会出现[header1,header2,body1,body2]
 			protocol.FreePoolMsg(msg)

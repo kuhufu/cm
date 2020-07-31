@@ -84,7 +84,6 @@ func NewMessageWithDefault() *Message {
 	return message
 }
 
-
 func (m *Message) HeaderString() string {
 	return fmt.Sprintf(
 		`"magicNumber":%v, "headerLen":%v, "cmd":%v, "requestId":%v, bodyLen":%v`,
@@ -158,19 +157,19 @@ func (m *Message) Body() []byte {
 	return m.body
 }
 
-func (m *Message) WriteTo(w io.Writer) error {
+func (m *Message) WriteTo(w io.Writer) (int64, error) {
 	if WriterNeedFullWrite(w) {
 		data := m.Encode()
-		_, err := w.Write(data)
-		return err
+		n, err := w.Write(data)
+		return int64(n), err
 	}
 
-	_, err := w.Write(m.Header[:])
+	n, err := w.Write(m.Header[:])
 	if err != nil {
-		return err
+		return int64(n), err
 	}
-	_, err = w.Write(m.body)
-	return err
+	nb, err := w.Write(m.body)
+	return int64(n + nb), err
 }
 
 func (m *Message) Decode(r io.Reader) error {
