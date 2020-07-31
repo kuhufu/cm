@@ -79,7 +79,7 @@ func (srv *Server) Handle(conn *cm.Conn) {
 		conn.Close()
 	}()
 
-	go srv.HandleWriter(conn)
+	go srv.WriteLoop(conn)
 
 	AuthTimer := time.AfterFunc(srv.AuthTimeout, func() {
 		conn.Close()
@@ -125,10 +125,10 @@ func (srv *Server) Handle(conn *cm.Conn) {
 		}
 	}
 authOk:
-	srv.HandleReader(conn)
+	srv.ReadLoop(conn)
 }
 
-func (srv *Server) HandleReader(conn *cm.Conn) {
+func (srv *Server) ReadLoop(conn *cm.Conn) {
 	var err error
 	var heartbeatTimer *time.Timer
 
@@ -177,7 +177,7 @@ func (srv *Server) HandleReader(conn *cm.Conn) {
 	}
 }
 
-func (srv *Server) HandleWriter(conn *cm.Conn) {
+func (srv *Server) WriteLoop(conn *cm.Conn) {
 	var err error
 	defer func() {
 		srv.cm.RemoveConn(conn)
