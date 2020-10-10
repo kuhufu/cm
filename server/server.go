@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	logger "github.com/kuhufu/cm/logger"
@@ -27,8 +26,6 @@ type Server struct {
 	cm             *cm.ConnManager
 	addr           string
 	messageHandler MessageHandler
-
-	connMux sync.Mutex
 }
 
 func NewServer(opts ...Option) *Server {

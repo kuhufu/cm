@@ -38,7 +38,7 @@ func (a *Addr) String() string {
 type Listener struct {
 	Address   string
 	upgrader  websocket.Upgrader
-	exit      chan struct{}
+	exitC     chan struct{}
 	connC     chan *Conn
 	closeOnce sync.Once
 	addr      net.Addr
@@ -65,7 +65,7 @@ func Listen(network, addr string) (*Listener, error) {
 
 func (w *Listener) Accept() (net.Conn, error) {
 	select {
-	case <-w.exit:
+	case <-w.exitC:
 		return nil, errors.New("listener closed")
 	case res := <-w.connC:
 		return &Conn{conn: res.conn}, nil
@@ -95,7 +95,7 @@ func (w *Listener) RunHttpUpgrader() {
 
 func (w *Listener) Close() error {
 	w.closeOnce.Do(func() {
-		close(w.exit)
+		close(w.exitC)
 	})
 	return nil
 }
