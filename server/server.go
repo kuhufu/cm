@@ -1,7 +1,6 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -66,11 +65,11 @@ func (srv *Server) Run(network, addr string) error {
 			return err
 		}
 		logger.Printf("new connect: %v", conn.RemoteAddr())
-		go srv.Handle(cm.NewConn(conn))
+		go srv.serve(cm.NewConn(conn))
 	}
 }
 
-func (srv *Server) Handle(conn *cm.Conn) {
+func (srv *Server) serve(conn *cm.Conn) {
 	var err error
 	defer func() {
 		if err != nil {
@@ -107,7 +106,7 @@ func (srv *Server) Handle(conn *cm.Conn) {
 
 			if reply.Ok {
 				if !AuthTimer.Stop() {
-					err = errors.New("认证超时")
+					err = ErrAuthTimeout
 					return
 				}
 
@@ -163,10 +162,11 @@ func (srv *Server) ReadLoop(conn *cm.Conn) {
 			data := srv.messageHandler.PushIn(conn, msg.Body())
 			conn.EnterOutMsg(CreateReplyMessage(msg, data))
 		case protocol.CmdHeartbeat:
-			if !heartbeatTimer.Reset(srv.HeartbeatTimeout) {
-				err = errors.New("心跳超时")
+			if !heartbeatTimer.Stop() {
+				err = ErrHeartbeatTimeout
 				return
 			}
+			heartbeatTimer.Reset(srv.HeartbeatTimeout)
 			conn.EnterOutMsg(CreateReplyMessage(msg, nil))
 		case protocol.CmdClose:
 			return
