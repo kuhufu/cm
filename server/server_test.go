@@ -13,19 +13,10 @@ import (
 	"time"
 )
 
-func Test(t *testing.T) {
-	timer := time.NewTimer(time.Second)
-
-	fmt.Println(timer.Reset(time.Second * 2))
-
-	time.Sleep(time.Second * 3)
-	fmt.Println(timer.Reset(time.Second * 2))
+type Handler struct {
 }
 
-type Handle struct {
-}
-
-func (h Handle) OnAuth(data []byte) *AuthReply {
+func (h Handler) OnAuth(data []byte) *AuthReply {
 
 	f := struct {
 		Os  string `json:"os"`
@@ -43,17 +34,17 @@ func (h Handle) OnAuth(data []byte) *AuthReply {
 	}
 }
 
-func (h Handle) OnReceive(srcConn *cm.Conn, data []byte) (resp []byte) {
+func (h Handler) OnReceive(srcConn *cm.Conn, data []byte) (resp []byte) {
 	return data
 }
 
-func (h Handle) OnConnClose(conn *cm.Conn) {
-
+func (h Handler) OnConnClose(conn *cm.Conn) {
+	fmt.Println("连接已关闭")
 }
 
-func TestServer_Run(t *testing.T) {
+func Test_Server(t *testing.T) {
 	srv := NewServer(
-		WithMessageHandler(&Handle{}),
+		WithMessageHandler(&Handler{}),
 		WithAuthTimeout(time.Second*10),
 		WithHeartbeatTimeout(time.Minute*100),
 	)
@@ -72,7 +63,7 @@ func TestServer_Run(t *testing.T) {
 	}
 }
 
-func TestWsUpgrade(t *testing.T) {
+func Test_Client(t *testing.T) {
 	//development 123.56.103.77:7090
 	//production kfws.qiyejiaoyou.com:7090
 	f := func(uid string, os string) {
