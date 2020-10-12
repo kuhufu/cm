@@ -25,7 +25,7 @@ func Test(t *testing.T) {
 type Handle struct {
 }
 
-func (h Handle) Auth(data []byte) *AuthReply {
+func (h Handle) OnAuth(data []byte) *AuthReply {
 
 	f := struct {
 		Os  string `json:"os"`
@@ -43,7 +43,7 @@ func (h Handle) Auth(data []byte) *AuthReply {
 	}
 }
 
-func (h Handle) PushIn(srcConn *cm.Conn, data []byte) (resp []byte) {
+func (h Handle) OnReceive(srcConn *cm.Conn, data []byte) (resp []byte) {
 	return data
 }
 
@@ -115,13 +115,12 @@ func TestWsUpgrade(t *testing.T) {
 			}
 
 			msg.Decode(bytes2.NewReader(data))
-			log.Println(os + ":receive:", msg)
+			log.Println(os+":receive:", msg)
 		}
 	}
 
 	go f("1", "web")
 	go f("1", "android")
-
 
 	time.Sleep(time.Hour)
 }

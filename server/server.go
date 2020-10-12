@@ -14,8 +14,8 @@ const DefaultAuthTimeout = time.Second * 10
 const DefaultHeartBeatTimeout = time.Second * 90
 
 type MessageHandler interface {
-	Auth(data []byte) *AuthReply
-	PushIn(srcConn *cm.Conn, data []byte) (resp []byte)
+	OnAuth(data []byte) *AuthReply
+	OnReceive(srcConn *cm.Conn, data []byte) (resp []byte)
 	OnConnClose(conn *cm.Conn)
 }
 
@@ -93,7 +93,7 @@ func (srv *Server) serve(conn *cm.Conn) {
 
 		switch msg.Cmd() {
 		case protocol.CmdAuth:
-			reply := srv.messageHandler.Auth(msg.Body())
+			reply := srv.messageHandler.OnAuth(msg.Body())
 
 			if err = reply.err; err != nil {
 				return
@@ -156,7 +156,7 @@ func (srv *Server) ReadLoop(conn *cm.Conn) {
 
 		switch msg.Cmd() {
 		case protocol.CmdPush:
-			data := srv.messageHandler.PushIn(conn, msg.Body())
+			data := srv.messageHandler.OnReceive(conn, msg.Body())
 			conn.EnterOutMsg(CreateReplyMessage(msg, data))
 		case protocol.CmdHeartbeat:
 			if !heartbeatTimer.Stop() {
