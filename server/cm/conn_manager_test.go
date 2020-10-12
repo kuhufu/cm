@@ -18,11 +18,11 @@ func Test_add(t *testing.T) {
 		userId := fmt.Sprintf("u:%v", i)
 		go func() {
 			cm.With(func() {
-				cm.AddOrReplaceSyncNo(fmt.Sprintf("u:%v:web", i), &Conn{
+				cm.AddOrReplaceNoSync(fmt.Sprintf("u:%v:web", i), &Conn{
 					Id:     fmt.Sprintf("u:%v:web", i),
 					UserId: userId,
 				})
-				cm.AddToGroupSyncNo(userId, groupIds)
+				cm.AddToGroupNoSync(userId, groupIds)
 			})
 			wg.Done()
 		}()

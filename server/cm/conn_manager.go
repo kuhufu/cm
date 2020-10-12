@@ -26,7 +26,7 @@ func (m *ConnManager) GetDeviceGroup(userId UserId) (*DeviceGroup, bool) {
 }
 
 //添加到群组
-func (m *ConnManager) AddToGroupSyncNo(userId UserId, groupIds []string) {
+func (m *ConnManager) AddToGroupNoSync(userId UserId, groupIds []string) {
 	for _, groupId := range groupIds {
 		m.groups.GetOrCreate(groupId).Add(userId, m.deviceGroups.GetOrCreate(userId))
 	}
@@ -53,7 +53,7 @@ func (m *ConnManager) GetGroup(id GroupId) (*Group, bool) {
 	return m.groups.Get(id)
 }
 
-func (m *ConnManager) AddOrReplaceSyncNo(connId ConnId, conn *Conn) *Conn {
+func (m *ConnManager) AddOrReplaceNoSync(connId ConnId, conn *Conn) *Conn {
 	var oldConn *Conn
 	var ok bool
 	if oldConn, ok = m.connMap.Get(connId); ok {
@@ -71,7 +71,7 @@ func (m *ConnManager) AddOrReplace(connId ConnId, conn *Conn) *Conn {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.AddOrReplaceSyncNo(connId, conn)
+	return m.AddOrReplaceNoSync(connId, conn)
 }
 
 func (m *ConnManager) RemoveConn(conn *Conn) {

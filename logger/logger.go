@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"log"
 	"sync/atomic"
 )
@@ -35,33 +36,33 @@ type Logger struct {
 	Level Level
 }
 
-func (logger *Logger) level() Level {
-	return Level(atomic.LoadUint32((*uint32)(&logger.Level)))
+func (l *Logger) level() Level {
+	return Level(atomic.LoadUint32((*uint32)(&l.Level)))
 }
 
-func (logger *Logger) setLevel(level Level) {
-	atomic.StoreUint32((*uint32)(&logger.Level), uint32(level))
+func (l *Logger) setLevel(level Level) {
+	atomic.StoreUint32((*uint32)(&l.Level), uint32(level))
 }
 
-func (logger *Logger) IsLevelEnabled(level Level) bool {
-	return logger.level() >= level
+func (l *Logger) IsLevelEnabled(level Level) bool {
+	return l.level() >= level
 }
 
 func (l *Logger) Logf(level Level, format string, args ...interface{}) {
 	if l.IsLevelEnabled(level) {
-		log.Printf(format, args...)
+		log.Printf(fmt.Sprintf("[%v] ", strMap[level])+format, args...)
 	}
 }
 
 func (l *Logger) Log(level Level, args ...interface{}) {
 	if l.IsLevelEnabled(level) {
-		log.Print(args...)
+		log.Print(append([]interface{}{fmt.Sprintf("[%v] ", strMap[level])}, args...))
 	}
 }
 
 func (l *Logger) Logln(level Level, args ...interface{}) {
 	if l.IsLevelEnabled(level) {
-		log.Println(args...)
+		log.Println(append([]interface{}{fmt.Sprintf("[%v] ", strMap[level])}, args...))
 	}
 }
 

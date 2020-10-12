@@ -265,8 +265,8 @@ func (srv *Server) AddConn(conn *cm.Conn, userId, connId string, groupIds []stri
 
 	var oldConn *cm.Conn
 	srv.cm.With(func() {
-		oldConn = srv.cm.AddOrReplaceSyncNo(connId, conn)
-		srv.cm.AddToGroupSyncNo(conn.UserId, groupIds)
+		oldConn = srv.cm.AddOrReplaceNoSync(connId, conn)
+		srv.cm.AddToGroupNoSync(conn.UserId, groupIds)
 	})
 
 	if oldConn != nil {
@@ -275,10 +275,5 @@ func (srv *Server) AddConn(conn *cm.Conn, userId, connId string, groupIds []stri
 }
 
 func (srv *Server) GetConn(connId string) (*cm.Conn, bool) {
-	conn, ok := srv.cm.GetConn(connId)
-	if !ok {
-		return nil, false
-	}
-
-	return conn, true
+	return srv.cm.GetConn(connId)
 }
