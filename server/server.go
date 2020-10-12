@@ -137,6 +137,8 @@ func (srv *Server) ReadLoop(conn *cm.Conn) {
 		} else {
 			logger.Printf("connId: %v:%v, reader退出", conn.Id, conn.Version)
 		}
+
+		srv.messageHandler.OnConnClose(conn)
 	}()
 
 	heartbeatTimer = time.AfterFunc(srv.HeartbeatTimeout, func() {

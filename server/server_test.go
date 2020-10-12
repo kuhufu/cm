@@ -9,6 +9,7 @@ import (
 	"github.com/kuhufu/cm/server/cm"
 	"io/ioutil"
 	"log"
+	"net"
 	"testing"
 	"time"
 )
@@ -50,24 +51,34 @@ func Test_Server(t *testing.T) {
 	)
 
 	go func() {
-
 		for {
 			time.Sleep(time.Second)
 			srv.PushToDeviceGroup("1", []byte("hello"))
 		}
 	}()
 
-	err := srv.Run("ws", "0.0.0.0:8080")
-	if err != nil {
-		t.Error(err)
-	}
+	go func() {
+		err := srv.Run("ws", "0.0.0.0:8081")
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+
+	go func() {
+		err := srv.Run("tcp", "0.0.0.0:8080")
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+
+	select {}
 }
 
-func Test_Client(t *testing.T) {
+func Test_ClientWs(t *testing.T) {
 	//development 123.56.103.77:7090
 	//production kfws.qiyejiaoyou.com:7090
 	f := func(uid string, os string) {
-		conn, response, err := websocket.DefaultDialer.Dial("ws://localhost:8080/ws", nil)
+		conn, response, err := websocket.DefaultDialer.Dial("ws://localhost:8081/ws", nil)
 		if err != nil {
 			t.Error(err)
 			return
@@ -111,11 +122,44 @@ func Test_Client(t *testing.T) {
 	}
 
 	go f("1", "web")
-	go f("1", "android")
 
 	time.Sleep(time.Hour)
 }
 
-func TestString(t *testing.T) {
+func Test_ClientTcp(t *testing.T) {
+	//development 123.56.103.77:7090
+	//production kfws.qiyejiaoyou.com:7090
+	f := func(uid string, os string) {
+		conn, err := net.Dial("tcp", "localhost:8080")
+		if err != nil {
+			t.Error(err)
+			return
+		}
 
+		fmt.Println(conn.RemoteAddr())
+
+		time.Sleep(time.Millisecond)
+
+		msg := protocol.NewDefaultMessage()
+		msg.SetCmd(protocol.CmdAuth)
+		msg.SetBody([]byte(fmt.Sprintf(`{"uid":"%v","os":"%v"}`, uid, os)))
+
+		fmt.Println(msg)
+
+		_, err = conn.Write(msg.Encode())
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		for {
+			//读
+			msg.Decode(conn)
+			log.Println(os+":receive:", msg)
+		}
+	}
+
+	go f("1", "android")
+
+	time.Sleep(time.Hour)
 }
