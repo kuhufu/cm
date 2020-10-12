@@ -31,9 +31,9 @@ var cmdMap = map[Cmd]string{
 }
 
 const (
-	MagicNumber = 0x08
-	HeaderLen   = 20
-	MaxBodyLen  = 2 * MB
+	DefaultMagicNumber = 0x08
+	DefaultHeaderLen   = 20
+	MaxBodyLen         = 2 * MB
 )
 
 //标记接口，需要一次性写入完整消息，否则头和body将分开写
@@ -56,7 +56,7 @@ func (c Cmd) String() string {
 //cmd         Cmd
 //requestId   uint32 请求id由客户端设置
 //bodyLen     uint32
-type Header [HeaderLen]byte
+type Header [DefaultHeaderLen]byte
 
 type Message struct {
 	Header
@@ -71,16 +71,16 @@ func NewMessage() *Message {
 
 func newCustomMessage(cmd Cmd, body []byte) *Message {
 	message := NewMessage()
-	message.SetHeaderLen(HeaderLen)
+	message.SetHeaderLen(DefaultHeaderLen)
 	message.SetCmd(cmd)
 	message.SetBody(body)
 	return message
 }
 
-func NewMessageWithDefault() *Message {
+func NewDefaultMessage() *Message {
 	message := NewMessage()
-	message.SetHeaderLen(HeaderLen)
-	message.SetMagicNumber(MagicNumber)
+	message.SetHeaderLen(DefaultHeaderLen)
+	message.SetMagicNumber(DefaultMagicNumber)
 	return message
 }
 
@@ -195,12 +195,12 @@ func (m *Message) Decode(r io.Reader) error {
 
 func (m *Message) ValidHeader() error {
 	//检查magicNumber
-	if m.MagicNumber() != MagicNumber {
+	if m.MagicNumber() != DefaultMagicNumber {
 		return ErrWrongMagicNumber
 	}
 
 	//检查header长度
-	if m.HeaderLen() != HeaderLen {
+	if m.HeaderLen() != DefaultHeaderLen {
 		return ErrWrongHeaderLen
 	}
 
@@ -214,10 +214,10 @@ func (m *Message) ValidHeader() error {
 }
 
 func (m *Message) Encode() []byte {
-	data := make([]byte, HeaderLen+m.BodyLen())
+	data := make([]byte, DefaultHeaderLen+m.BodyLen())
 
-	copy(data[:HeaderLen], m.Header[:])
-	copy(data[HeaderLen:], m.body)
+	copy(data[:DefaultHeaderLen], m.Header[:])
+	copy(data[DefaultHeaderLen:], m.body)
 	return data
 }
 

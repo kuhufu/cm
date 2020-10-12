@@ -84,7 +84,7 @@ func Test_Client(t *testing.T) {
 
 		time.Sleep(time.Millisecond)
 
-		msg := protocol.NewMessageWithDefault()
+		msg := protocol.NewDefaultMessage()
 		msg.SetCmd(protocol.CmdAuth)
 		msg.SetBody([]byte(fmt.Sprintf(`{"uid":"%v","os":"%v"}`, uid, os)))
 

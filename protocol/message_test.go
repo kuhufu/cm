@@ -11,7 +11,7 @@ import (
 )
 
 func TestMessage_Encode(t *testing.T) {
-	m := NewMessageWithDefault().SetCmd(CmdAuth).SetBody([]byte("111"))
+	m := NewDefaultMessage().SetCmd(CmdAuth).SetBody([]byte("111"))
 	encode := m.Encode()
 
 	m2, err := Read(bytes.NewReader(encode))
