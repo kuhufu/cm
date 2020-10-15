@@ -2,7 +2,7 @@ package ws
 
 import (
 	"fmt"
-	"github.com/kuhufu/cm/protocol"
+	"github.com/kuhufu/cm/protocol/binary"
 	"io"
 	"testing"
 )
@@ -19,7 +19,7 @@ func TestTypeCheck(t *testing.T) {
 	conn := &Conn{}
 	w := io.Writer(conn)
 
-	if _, ok := w.(protocol.NeedFullWrite); !ok {
+	if _, ok := w.(binary.NeedFullWrite); !ok {
 		t.Error("fail")
 	}
 }

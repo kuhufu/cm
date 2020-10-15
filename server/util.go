@@ -1,11 +1,11 @@
 package server
 
 import (
-	"github.com/kuhufu/cm/protocol"
+	"github.com/kuhufu/cm/protocol/binary"
 )
 
-func CreateReplyMessage(srcMsg *protocol.Message, data []byte) *protocol.Message {
-	msg := protocol.GetPoolMsg()
+func CreateReplyMessage(srcMsg *binary.Message, data []byte) *binary.Message {
+	msg := binary.GetPoolMsg()
 	msg.SetBody(data).SetCmd(srcMsg.Cmd()).SetRequestId(srcMsg.RequestId())
 	return msg
 }

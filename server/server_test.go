@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
-	"github.com/kuhufu/cm/protocol"
+	"github.com/kuhufu/cm/protocol/binary"
 	"github.com/kuhufu/cm/server/cm"
 	"io/ioutil"
 	"log"
@@ -95,8 +95,8 @@ func Test_ClientWs(t *testing.T) {
 
 		time.Sleep(time.Millisecond)
 
-		msg := protocol.NewDefaultMessage()
-		msg.SetCmd(protocol.CmdAuth)
+		msg := binary.NewDefaultMessage()
+		msg.SetCmd(binary.CmdAuth)
 		msg.SetBody([]byte(fmt.Sprintf(`{"uid":"%v","os":"%v"}`, uid, os)))
 
 		fmt.Println(msg)
@@ -140,8 +140,8 @@ func Test_ClientTcp(t *testing.T) {
 
 		time.Sleep(time.Millisecond)
 
-		msg := protocol.NewDefaultMessage()
-		msg.SetCmd(protocol.CmdAuth)
+		msg := binary.NewDefaultMessage()
+		msg.SetCmd(binary.CmdAuth)
 		msg.SetBody([]byte(fmt.Sprintf(`{"uid":"%v","os":"%v"}`, uid, os)))
 
 		fmt.Println(msg)

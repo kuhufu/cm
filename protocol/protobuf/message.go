@@ -3,7 +3,7 @@ package protobuf
 import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
-	"github.com/kuhufu/cm/protocol"
+	binary2 "github.com/kuhufu/cm/protocol/binary"
 	"io"
 )
 
@@ -45,16 +45,16 @@ func (m *MessageV1) ReadFrom(r io.Reader) (int64, error) {
 }
 
 func (m *MessageV1) valid() error {
-	if m.Size() > protocol.MaxBodyLen+20 {
-		return protocol.ErrBodyLenOverLimit
+	if m.Size() > binary2.MaxBodyLen+20 {
+		return binary2.ErrBodyLenOverLimit
 	}
 
 	if m.Size() < 0 {
-		return protocol.ErrWrongBodyLen
+		return binary2.ErrWrongBodyLen
 	}
 
-	if m.msg.MagicNumber != protocol.DefaultMagicNumber {
-		return protocol.ErrWrongMagicNumber
+	if m.msg.MagicNumber != binary2.DefaultMagicNumber {
+		return binary2.ErrWrongMagicNumber
 	}
 
 	return nil
@@ -90,4 +90,20 @@ func (m *MessageV1) Cmd() Cmd {
 
 func (m *MessageV1) Body() []byte {
 	return m.msg.Body
+}
+
+func (m *MessageV1) RequestId() uint32 {
+	return m.msg.RequestId
+}
+
+func (m *MessageV1) SetRequestId(id uint32) {
+	m.msg.RequestId = id
+}
+
+func (m *MessageV1) SetBody(body []byte) *MessageV1 {
+	m.msg.Body = body
+}
+
+func (m *MessageV1) SetCmd(cmd uint32) *MessageV1 {
+	m.msg.Cmd = Cmd(cmd)
 }

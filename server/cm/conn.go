@@ -2,12 +2,11 @@ package cm
 
 import (
 	"fmt"
+	protocol "github.com/kuhufu/cm/protocol/binary"
 	"net"
 	"sync"
 	"time"
 	"unsafe"
-
-	"github.com/kuhufu/cm/protocol"
 )
 
 type Conn struct {

@@ -2,10 +2,10 @@ package server
 
 import (
 	"fmt"
+	protocol "github.com/kuhufu/cm/protocol/binary"
 	"time"
 
 	logger "github.com/kuhufu/cm/logger"
-	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/server/cm"
 	"github.com/kuhufu/cm/server/listener"
 )
