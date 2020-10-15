@@ -20,7 +20,7 @@ func TestMessage_Encode(t *testing.T) {
 	}
 
 	bodyEqual := string(m.body) == string(m2.body)
-	headerEqual := m.Header == m2.Header
+	headerEqual := m.header == m2.header
 
 	if !bodyEqual || !headerEqual {
 		t.Error("消息编码错误")

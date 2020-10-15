@@ -56,10 +56,10 @@ func (c Cmd) String() string {
 //cmd         Cmd
 //requestId   uint32 请求id由客户端设置
 //bodyLen     uint32
-type Header [DefaultHeaderLen]byte
+type header [DefaultHeaderLen]byte
 
 type Message struct {
-	Header
+	header
 	body []byte
 }
 
@@ -96,47 +96,47 @@ func (m *Message) HeaderString() string {
 }
 
 func (m *Message) SetMagicNumber(n uint32) *Message {
-	binary.BigEndian.PutUint32(m.Header[0:4], n)
+	binary.BigEndian.PutUint32(m.header[0:4], n)
 	return m
 }
 
 func (m *Message) SetHeaderLen(n uint32) *Message {
-	binary.BigEndian.PutUint32(m.Header[4:8], n)
+	binary.BigEndian.PutUint32(m.header[4:8], n)
 	return m
 }
 
 func (m *Message) SetCmd(cmd Cmd) *Message {
-	binary.BigEndian.PutUint32(m.Header[8:12], uint32(cmd))
+	binary.BigEndian.PutUint32(m.header[8:12], uint32(cmd))
 	return m
 }
 
 func (m *Message) SetRequestId(n uint32) *Message {
-	binary.BigEndian.PutUint32(m.Header[12:16], n)
+	binary.BigEndian.PutUint32(m.header[12:16], n)
 	return m
 }
 
 func (m *Message) setBodyLen(n uint32) {
-	binary.BigEndian.PutUint32(m.Header[16:20], n)
+	binary.BigEndian.PutUint32(m.header[16:20], n)
 }
 
 func (m *Message) MagicNumber() uint32 {
-	return binary.BigEndian.Uint32(m.Header[0:4])
+	return binary.BigEndian.Uint32(m.header[0:4])
 }
 
 func (m *Message) HeaderLen() uint32 {
-	return binary.BigEndian.Uint32(m.Header[4:8])
+	return binary.BigEndian.Uint32(m.header[4:8])
 }
 
 func (m *Message) Cmd() Cmd {
-	return Cmd(binary.BigEndian.Uint32(m.Header[8:12]))
+	return Cmd(binary.BigEndian.Uint32(m.header[8:12]))
 }
 
 func (m *Message) RequestId() uint32 {
-	return binary.BigEndian.Uint32(m.Header[12:16])
+	return binary.BigEndian.Uint32(m.header[12:16])
 }
 
 func (m *Message) BodyLen() uint32 {
-	return binary.BigEndian.Uint32(m.Header[16:20])
+	return binary.BigEndian.Uint32(m.header[16:20])
 }
 
 func (m *Message) String() string {
@@ -158,13 +158,13 @@ func (m *Message) Body() []byte {
 }
 
 func (m *Message) WriteTo(w io.Writer) (int64, error) {
-	if WriterNeedFullWrite(w) {
+	if writerNeedFullWrite(w) {
 		data := m.Encode()
 		n, err := w.Write(data)
 		return int64(n), err
 	}
 
-	n, err := w.Write(m.Header[:])
+	n, err := w.Write(m.header[:])
 	if err != nil {
 		return int64(n), err
 	}
@@ -173,14 +173,14 @@ func (m *Message) WriteTo(w io.Writer) (int64, error) {
 }
 
 func (m *Message) Decode(r io.Reader) error {
-	header := m.Header[:]
+	header := m.header[:]
 
 	//读取头部
 	if _, err := io.ReadFull(r, header); err != nil {
 		return err
 	}
 
-	if err := m.ValidHeader(); err != nil {
+	if err := m.validHeader(); err != nil {
 		return err
 	}
 
@@ -193,7 +193,7 @@ func (m *Message) Decode(r io.Reader) error {
 	return nil
 }
 
-func (m *Message) ValidHeader() error {
+func (m *Message) validHeader() error {
 	//检查magicNumber
 	if m.MagicNumber() != DefaultMagicNumber {
 		return ErrWrongMagicNumber
@@ -216,7 +216,7 @@ func (m *Message) ValidHeader() error {
 func (m *Message) Encode() []byte {
 	data := make([]byte, DefaultHeaderLen+m.BodyLen())
 
-	copy(data[:DefaultHeaderLen], m.Header[:])
+	copy(data[:DefaultHeaderLen], m.header[:])
 	copy(data[DefaultHeaderLen:], m.body)
 	return data
 }
@@ -232,7 +232,7 @@ func Read(r io.Reader) (*Message, error) {
 	return message, nil
 }
 
-func WriterNeedFullWrite(w io.Writer) bool {
+func writerNeedFullWrite(w io.Writer) bool {
 	if v, ok := w.(NeedFullWrite); ok && v.MessageNeedFullWrite() {
 		return true
 	}
