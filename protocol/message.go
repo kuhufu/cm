@@ -10,11 +10,11 @@ import (
 type Cmd uint32
 
 const (
-	CmdAuth = Cmd(iota + 1)
-	CmdPush
-	CmdHeartbeat
-	CmdClose
-	CmdServerPush
+	CmdAuth       = Cmd(1)
+	CmdPush       = Cmd(2)
+	CmdHeartbeat  = Cmd(3)
+	CmdClose      = Cmd(4)
+	CmdServerPush = Cmd(5)
 )
 
 const (
@@ -43,6 +43,7 @@ type NeedFullWrite interface {
 
 var (
 	ErrBodyLenOverLimit = errors.New("body length over limit")
+	ErrWrongBodyLen     = errors.New("wrong body length")
 	ErrWrongHeaderLen   = errors.New("wrong header length")
 	ErrWrongMagicNumber = errors.New("wrong wrong magic number")
 )
@@ -208,6 +209,10 @@ func (m *Message) validHeader() error {
 	bodyLen := m.BodyLen()
 	if bodyLen > MaxBodyLen {
 		return ErrBodyLenOverLimit
+	}
+
+	if bodyLen < 0 {
+		return ErrWrongBodyLen
 	}
 
 	return nil
