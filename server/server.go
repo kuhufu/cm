@@ -89,7 +89,7 @@ func (srv *Server) serve(conn *cm.Conn) {
 		conn.Close()
 	}()
 
-	go srv.WriteLoop(conn)
+	go srv.writeLoop(conn)
 
 	AuthTimer := time.AfterFunc(srv.authTimeout, func() {
 		conn.Close()
@@ -126,7 +126,7 @@ func (srv *Server) serve(conn *cm.Conn) {
 					conn.Metadata.Store(k, v)
 				}
 
-				srv.AddConn(conn, reply.UserId, reply.ConnId, reply.GroupIds)
+				srv.addConn(conn, reply.UserId, reply.ConnId, reply.GroupIds)
 				goto authOk
 			}
 		default:
@@ -135,10 +135,10 @@ func (srv *Server) serve(conn *cm.Conn) {
 		}
 	}
 authOk:
-	srv.ReadLoop(conn)
+	srv.readLoop(conn)
 }
 
-func (srv *Server) ReadLoop(conn *cm.Conn) {
+func (srv *Server) readLoop(conn *cm.Conn) {
 	var err error
 	var heartbeatTimer *time.Timer
 
@@ -188,7 +188,7 @@ func (srv *Server) ReadLoop(conn *cm.Conn) {
 	}
 }
 
-func (srv *Server) WriteLoop(conn *cm.Conn) {
+func (srv *Server) writeLoop(conn *cm.Conn) {
 	var err error
 	defer func() {
 		srv.cm.RemoveConn(conn)
@@ -224,7 +224,7 @@ func (srv *Server) PushToConn(connId string, data []byte) error {
 	msg := protocol.GetPoolMsg()
 	msg.SetBody(data).SetCmd(consts.CmdServerPush)
 
-	if conn, ok := srv.GetConn(connId); ok {
+	if conn, ok := srv.getConn(connId); ok {
 		conn.EnterOutMsg(msg)
 	} else {
 		logger.Printf("连接不存在或已关闭, connId: %v", connId)
@@ -268,7 +268,7 @@ func (srv *Server) PushToGroup(groupId string, data []byte) {
 	}
 }
 
-func (srv *Server) AddConn(conn *cm.Conn, userId, connId string, groupIds []string) {
+func (srv *Server) addConn(conn *cm.Conn, userId, connId string, groupIds []string) {
 	if connId == "" {
 		panic("connId cannot be empty")
 	}
@@ -288,6 +288,6 @@ func (srv *Server) AddConn(conn *cm.Conn, userId, connId string, groupIds []stri
 	}
 }
 
-func (srv *Server) GetConn(connId string) (*cm.Conn, bool) {
+func (srv *Server) getConn(connId string) (*cm.Conn, bool) {
 	return srv.cm.GetConn(connId)
 }
