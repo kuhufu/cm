@@ -221,7 +221,7 @@ func (srv *Server) writeLoop(conn *cm.Conn) {
 
 //推送到连接
 func (srv *Server) PushToConn(connId string, data []byte) error {
-	conn, ok := srv.getConn(connId)
+	conn, ok := srv.cm.GetConn(connId)
 	if !ok {
 		logger.Printf("连接不存在或已关闭, connId: %v", connId)
 		return ErrConnNotExist
@@ -265,6 +265,11 @@ func (srv *Server) PushToDeviceGroup(userId string, data []byte) error {
 	return nil
 }
 
+//从群组中移除
+func (srv *Server) RemoveFromGroup(groupId, userId string) {
+	srv.cm.RemoveFromGroup(userId, groupId)
+}
+
 //推送到群组
 func (srv *Server) PushToGroup(groupId string, data []byte) {
 	g, ok := srv.cm.GetGroup(groupId)
@@ -301,12 +306,8 @@ func (srv *Server) addConn(conn *cm.Conn, userId, connId string, groupIds []stri
 	}
 }
 
-func (srv *Server) getConn(connId string) (*cm.Conn, bool) {
-	return srv.cm.GetConn(connId)
-}
-
 func (srv *Server) unicast(data []byte, connId string) error {
-	conn, ok := srv.getConn(connId)
+	conn, ok := srv.cm.GetConn(connId)
 	if !ok {
 		logger.Printf("连接不存在或已关闭, connId: %v", connId)
 		return ErrConnNotExist

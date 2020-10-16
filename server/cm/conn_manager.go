@@ -41,7 +41,7 @@ func (m *ConnManager) AddToGroup(userId UserId, groupIds []string) {
 }
 
 //从群组中移除
-func (m *ConnManager) RemoveFromGroup(userId UserId, groupIds []string) {
+func (m *ConnManager) RemoveFromGroup(userId UserId, groupIds ...string) {
 	for _, groupId := range groupIds {
 		if group, ok := m.GetGroup(groupId); ok {
 			group.Del(userId)
