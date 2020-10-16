@@ -116,3 +116,7 @@ func (m *ConnManager) remove(conn *Conn) {
 		m.removeFromDeviceGroup(conn)
 	}
 }
+
+func (m *ConnManager) AllConn() []*Conn {
+	return m.connMap.All()
+}

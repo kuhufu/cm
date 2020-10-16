@@ -21,7 +21,7 @@ func (cs *Conns) Get(id ConnId) (*Conn, bool) {
 	return c, ok
 }
 
-func (cs *Conns) Add(id ConnId, conn *Conn)  {
+func (cs *Conns) Add(id ConnId, conn *Conn) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
@@ -32,11 +32,23 @@ func (cs *Conns) Del(conn *Conn) bool {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-
 	if c, ok := cs.inner[conn.Id]; ok && conn == c {
 		delete(cs.inner, conn.Id)
 		return true
 	}
 
 	return false
+}
+
+func (cs *Conns) All() []*Conn {
+	cs.mu.RLock()
+	defer cs.mu.Unlock()
+
+	ret := make([]*Conn, 0, len(cs.inner))
+
+	for _, conn := range cs.inner {
+		ret = append(ret, conn)
+	}
+
+	return ret
 }

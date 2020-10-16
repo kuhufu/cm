@@ -221,51 +221,64 @@ func (srv *Server) writeLoop(conn *cm.Conn) {
 
 //推送到连接
 func (srv *Server) PushToConn(connId string, data []byte) error {
-	msg := protocol.GetPoolMsg()
-	msg.SetBody(data).SetCmd(consts.CmdServerPush)
-
-	if conn, ok := srv.getConn(connId); ok {
-		conn.EnterOutMsg(msg)
-	} else {
+	conn, ok := srv.getConn(connId)
+	if !ok {
 		logger.Printf("连接不存在或已关闭, connId: %v", connId)
-		protocol.FreePoolMsg(msg)
 		return ErrConnNotExist
 	}
+
+	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(consts.CmdServerPush)
+	conn.EnterOutMsg(msg)
+	protocol.FreePoolMsg(msg)
 
 	return nil
 }
 
+func (srv *Server) PushToUser(uid string, data []byte) {
+	group, ok := srv.cm.GetDeviceGroup(uid)
+	if !ok || group.Size() == 0 {
+		return
+	}
+
+	data = srvPushMsgBytes(data)
+
+	group.ForEach(func(conn *cm.Conn) {
+		conn.EnterOutBytes(data)
+	})
+
+}
+
 //推送到设备组
 func (srv *Server) PushToDeviceGroup(userId string, data []byte) error {
-	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(consts.CmdServerPush)
-	data = msg.Encode()
-	protocol.FreePoolMsg(msg)
+	data = srvPushMsgBytes(data)
 
-	if group, ok := srv.cm.GetDeviceGroup(userId); ok {
-		group.ForEach(func(conn *cm.Conn) {
-			conn.EnterOutBytes(data)
-		})
-	} else {
+	group, ok := srv.cm.GetDeviceGroup(userId)
+	if !ok {
 		logger.Printf("连接不存在或已关闭, userId: %v", userId)
 		return ErrConnNotExist
 	}
+
+	group.ForEach(func(conn *cm.Conn) {
+		conn.EnterOutBytes(data)
+	})
 
 	return nil
 }
 
 //推送到群组
 func (srv *Server) PushToGroup(groupId string, data []byte) {
-	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(consts.CmdServerPush)
-	data = msg.Encode()
-	protocol.FreePoolMsg(msg)
-
-	if g, ok := srv.cm.GetGroup(groupId); ok {
-		g.ForEach(func(id cm.UserId, g *cm.DeviceGroup) {
-			g.ForEach(func(conn *cm.Conn) {
-				conn.EnterOutBytes(data)
-			})
-		})
+	g, ok := srv.cm.GetGroup(groupId)
+	if !ok {
+		return
 	}
+
+	data = srvPushMsgBytes(data)
+
+	g.ForEach(func(id cm.UserId, g *cm.DeviceGroup) {
+		g.ForEach(func(conn *cm.Conn) {
+			conn.EnterOutBytes(data)
+		})
+	})
 }
 
 func (srv *Server) addConn(conn *cm.Conn, userId, connId string, groupIds []string) {
@@ -290,4 +303,46 @@ func (srv *Server) addConn(conn *cm.Conn, userId, connId string, groupIds []stri
 
 func (srv *Server) getConn(connId string) (*cm.Conn, bool) {
 	return srv.cm.GetConn(connId)
+}
+
+func (srv *Server) unicast(data []byte, connId string) error {
+	conn, ok := srv.getConn(connId)
+	if !ok {
+		logger.Printf("连接不存在或已关闭, connId: %v", connId)
+		return ErrConnNotExist
+	}
+
+	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(consts.CmdServerPush)
+	conn.EnterOutMsg(msg)
+
+	return nil
+}
+
+func (srv *Server) multicast(data []byte, connIds ...string) {
+	data = srvPushMsgBytes(data)
+
+	items := make([]*cm.Conn, 0, len(connIds))
+
+	for _, connId := range connIds {
+		conn, _ := srv.cm.GetConn(connId)
+		items = append(items, conn)
+		conn.EnterOutBytes(data)
+	}
+}
+
+func (srv *Server) broadcast(data []byte) {
+	data = srvPushMsgBytes(data)
+
+	all := srv.cm.AllConn()
+	for _, conn := range all {
+		conn.EnterOutBytes(data)
+	}
+}
+
+func srvPushMsgBytes(data []byte) []byte {
+	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(consts.CmdServerPush)
+	data = msg.Encode()
+	protocol.FreePoolMsg(msg)
+
+	return data
 }
