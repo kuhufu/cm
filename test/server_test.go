@@ -42,7 +42,7 @@ func (h Handler) OnReceive(srcConn *cm.Conn, data []byte) (resp []byte) {
 	return data
 }
 
-func (h Handler) OnConnClose(conn *cm.Conn) {
+func (h Handler) OnClose(conn *cm.Conn) {
 	fmt.Println("连接已关闭")
 }
 

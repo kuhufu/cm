@@ -14,18 +14,17 @@ import (
 const DefaultAuthTimeout = time.Second * 10
 const DefaultHeartBeatTimeout = time.Second * 90
 
-type MessageHandler interface {
+type Handler interface {
 	OnAuth(data []byte) *AuthReply
 	OnReceive(srcConn *cm.Conn, data []byte) (resp []byte)
-	OnConnClose(conn *cm.Conn)
+	OnClose(conn *cm.Conn)
 }
 
 type Server struct {
-	AuthTimeout      time.Duration
-	HeartbeatTimeout time.Duration
+	authTimeout      time.Duration
+	heartbeatTimeout time.Duration
 	cm               *cm.ConnManager
-	addr             string
-	messageHandler   MessageHandler
+	handler          Handler
 	opts             Options
 	mu               sync.Mutex
 }
@@ -33,19 +32,19 @@ type Server struct {
 func NewServer(opts ...Option) *Server {
 	s := &Server{
 		cm:               cm.NewConnManager(),
-		AuthTimeout:      DefaultAuthTimeout,
-		HeartbeatTimeout: DefaultHeartBeatTimeout,
+		authTimeout:      DefaultAuthTimeout,
+		heartbeatTimeout: DefaultHeartBeatTimeout,
 	}
 
 	for _, opt := range opts {
 		opt(s)
 	}
 
-	if s.messageHandler == nil {
+	if s.handler == nil {
 		panic("message handler cannot be nil")
 	}
 
-	logger.Printf("auth_timeout: %v, heartbeat_timeout: %v", s.AuthTimeout, s.HeartbeatTimeout)
+	logger.Printf("auth_timeout: %v, heartbeat_timeout: %v", s.authTimeout, s.heartbeatTimeout)
 
 	return s
 }
@@ -92,7 +91,7 @@ func (srv *Server) serve(conn *cm.Conn) {
 
 	go srv.WriteLoop(conn)
 
-	AuthTimer := time.AfterFunc(srv.AuthTimeout, func() {
+	AuthTimer := time.AfterFunc(srv.authTimeout, func() {
 		conn.Close()
 		logger.Println("认证超时")
 	})
@@ -108,7 +107,7 @@ func (srv *Server) serve(conn *cm.Conn) {
 
 		switch msg.Cmd() {
 		case consts.CmdAuth:
-			reply := srv.messageHandler.OnAuth(msg.Body())
+			reply := srv.handler.OnAuth(msg.Body())
 
 			if err = reply.err; err != nil {
 				return
@@ -153,10 +152,10 @@ func (srv *Server) ReadLoop(conn *cm.Conn) {
 			logger.Printf("connId: %v:%v, reader退出", conn.Id, conn.Version)
 		}
 
-		srv.messageHandler.OnConnClose(conn)
+		srv.handler.OnClose(conn)
 	}()
 
-	heartbeatTimer = time.AfterFunc(srv.HeartbeatTimeout, func() {
+	heartbeatTimer = time.AfterFunc(srv.heartbeatTimeout, func() {
 		conn.Close()
 		logger.Println("第一个心跳超时")
 	})
@@ -171,14 +170,14 @@ func (srv *Server) ReadLoop(conn *cm.Conn) {
 
 		switch msg.Cmd() {
 		case consts.CmdPush:
-			data := srv.messageHandler.OnReceive(conn, msg.Body())
+			data := srv.handler.OnReceive(conn, msg.Body())
 			conn.EnterOutMsg(CreateReplyMessage(msg, data))
 		case consts.CmdHeartbeat:
 			if !heartbeatTimer.Stop() {
 				err = ErrHeartbeatTimeout
 				return
 			}
-			heartbeatTimer.Reset(srv.HeartbeatTimeout)
+			heartbeatTimer.Reset(srv.heartbeatTimeout)
 			conn.EnterOutMsg(CreateReplyMessage(msg, nil))
 		case consts.CmdClose:
 			return

@@ -2,11 +2,27 @@ package protobuf
 
 import (
 	"encoding/binary"
+	"errors"
 	"github.com/golang/protobuf/proto"
 	"github.com/kuhufu/cm/protocol/Interface"
-	binary2 "github.com/kuhufu/cm/protocol/binary"
-	"github.com/kuhufu/cm/protocol/consts"
 	"io"
+)
+
+const (
+	KB = 1 << 10
+	MB = KB << 10
+)
+
+const (
+	DefaultMagicNumber = 0x08
+	DefaultHeaderLen   = 20
+	MaxBodyLen         = 2 * MB
+)
+
+var (
+	ErrBodyLenOverLimit = errors.New("body length over limit")
+	ErrWrongBodyLen     = errors.New("wrong body length")
+	ErrWrongMagicNumber = errors.New("wrong wrong magic number")
 )
 
 type MessageV1 struct {
@@ -21,7 +37,7 @@ func NewMessage() *MessageV1 {
 func NewDefaultMessage() *MessageV1 {
 	return &MessageV1{
 		msg: Message{
-			MagicNumber: consts.DefaultMagicNumber,
+			MagicNumber: DefaultMagicNumber,
 		},
 	}
 }
@@ -55,16 +71,16 @@ func (m *MessageV1) ReadFrom(r io.Reader) (int64, error) {
 }
 
 func (m *MessageV1) valid() error {
-	if m.Size() > binary2.MaxBodyLen+20 {
-		return binary2.ErrBodyLenOverLimit
+	if m.Size() > MaxBodyLen+20 {
+		return ErrBodyLenOverLimit
 	}
 
 	if m.Size() < 0 {
-		return binary2.ErrWrongBodyLen
+		return ErrWrongBodyLen
 	}
 
-	if m.msg.MagicNumber != binary2.DefaultMagicNumber {
-		return binary2.ErrWrongMagicNumber
+	if m.msg.MagicNumber != DefaultMagicNumber {
+		return ErrWrongMagicNumber
 	}
 
 	return nil
@@ -113,8 +129,10 @@ func (m *MessageV1) SetRequestId(id uint32) Interface.Message {
 
 func (m *MessageV1) SetBody(body []byte) Interface.Message {
 	m.msg.Body = body
+	return m
 }
 
 func (m *MessageV1) SetCmd(cmd uint32) Interface.Message {
 	m.msg.Cmd = Cmd(cmd)
+	return m
 }

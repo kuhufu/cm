@@ -16,19 +16,19 @@ type Option func(s *Server)
 
 func WithAuthTimeout(duration time.Duration) Option {
 	return func(s *Server) {
-		s.AuthTimeout = duration
+		s.authTimeout = duration
 	}
 }
 
 func WithHeartbeatTimeout(duration time.Duration) Option {
 	return func(s *Server) {
-		s.HeartbeatTimeout = duration
+		s.heartbeatTimeout = duration
 	}
 }
 
-func WithMessageHandler(handler MessageHandler) Option {
+func WithMessageHandler(handler Handler) Option {
 	return func(s *Server) {
-		s.messageHandler = handler
+		s.handler = handler
 	}
 }
 
