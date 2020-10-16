@@ -27,11 +27,11 @@ func (w *Conn) Read(b []byte) (n int, err error) {
 
 	for left != 0 {
 		if reader != nil {
-			readn, err := reader.Read(b)
+			n, err := reader.Read(b)
 			if err != nil && err != io.EOF {
-				return readn, err
+				return n, err
 			}
-			left -= readn
+			left -= n
 		}
 
 		if left != 0 {

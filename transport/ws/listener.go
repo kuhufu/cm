@@ -10,19 +10,6 @@ import (
 )
 import "github.com/gorilla/websocket"
 
-var defaultUpgrader = websocket.Upgrader{
-	HandshakeTimeout: 0,
-	ReadBufferSize:   0,
-	WriteBufferSize:  0,
-	WriteBufferPool:  nil,
-	Subprotocols:     nil,
-	Error:            nil,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-	EnableCompression: false,
-}
-
 type Addr struct {
 	network string
 	addr    string
@@ -37,9 +24,10 @@ func (a *Addr) String() string {
 }
 
 type Listener struct {
-	Address   string
-	Host      string
-	Path      string
+	opts      Options
+	scheme    string
+	host      string
+	path      string
 	upgrader  websocket.Upgrader
 	exitC     chan struct{}
 	connC     chan *Conn
@@ -47,9 +35,13 @@ type Listener struct {
 	addr      net.Addr
 }
 
-func Listen(network, addr string) (*Listener, error) {
+func Listen(network, addr string, opts Options) (*Listener, error) {
 	if network != "ws" && network != "wss" {
 		return nil, errors.New("not support network: " + network)
+	}
+
+	if err := opts.Init(); err != nil {
+		return nil, err
 	}
 
 	var path = "/"
@@ -59,18 +51,19 @@ func Listen(network, addr string) (*Listener, error) {
 		addr = addr[:index]
 	}
 
-	w := &Listener{
-		Address: addr,
-		Path:    path,
-		connC:   make(chan *Conn, 4),
+	ln := &Listener{
+		scheme: network,
+		opts:   opts,
+		host:   addr,
+		path:   path,
+		connC:  make(chan *Conn, 4),
 		addr: &Addr{
 			network: network,
 			addr:    addr,
 		},
-		upgrader: defaultUpgrader,
 	}
-	go w.RunHttpUpgrader()
-	return w, nil
+	go ln.runUpgrader()
+	return ln, nil
 }
 
 func (w *Listener) Accept() (net.Conn, error) {
@@ -82,8 +75,10 @@ func (w *Listener) Accept() (net.Conn, error) {
 	}
 }
 
-func (w *Listener) RunHttpUpgrader() {
-	http.HandleFunc(w.Path, func(writer http.ResponseWriter, reader *http.Request) {
+func (w *Listener) runUpgrader() {
+	opts := w.opts
+
+	opts.ServeMux.HandleFunc(w.path, func(writer http.ResponseWriter, reader *http.Request) {
 		log.Println("收到ws升级请求")
 		conn, err := w.upgrader.Upgrade(writer, reader, nil)
 		if err != nil {
@@ -94,11 +89,18 @@ func (w *Listener) RunHttpUpgrader() {
 		w.connC <- &Conn{conn: conn}
 	})
 
-	log.Printf("http://%v%v", w.Address, w.Path)
+	log.Printf("http://%v%v", w.host, w.path)
 
-	err := http.ListenAndServe(w.Address, nil)
+	var err error
+	switch w.scheme {
+	case "ws":
+		err = http.ListenAndServe(w.host, nil)
+	case "wss":
+		err = http.ListenAndServeTLS(w.host, opts.CertFile, opts.KeyFile, nil)
+	}
+
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 }
 

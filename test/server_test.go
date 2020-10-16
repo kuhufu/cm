@@ -1,16 +1,17 @@
-package server
+package test
 
 import (
 	bytes2 "bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/protocol/consts"
+	"github.com/kuhufu/cm/server"
 	"github.com/kuhufu/cm/server/cm"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/url"
 	"testing"
 	"time"
@@ -19,7 +20,7 @@ import (
 type Handler struct {
 }
 
-func (h Handler) OnAuth(data []byte) *AuthReply {
+func (h Handler) OnAuth(data []byte) *server.AuthReply {
 
 	f := struct {
 		Os  string `json:"os"`
@@ -28,7 +29,7 @@ func (h Handler) OnAuth(data []byte) *AuthReply {
 
 	json.Unmarshal(data, &f)
 
-	return &AuthReply{
+	return &server.AuthReply{
 		Ok:       true,
 		ConnId:   f.Uid + ":" + f.Os,
 		UserId:   f.Uid,
@@ -46,10 +47,11 @@ func (h Handler) OnConnClose(conn *cm.Conn) {
 }
 
 func Test_Server(t *testing.T) {
-	srv := NewServer(
-		WithMessageHandler(&Handler{}),
-		WithAuthTimeout(time.Second*10),
-		WithHeartbeatTimeout(time.Minute*100),
+	srv := server.NewServer(
+		server.WithMessageHandler(&Handler{}),
+		server.WithAuthTimeout(time.Second*10),
+		server.WithHeartbeatTimeout(time.Minute*100),
+		server.WithCertAndKeyFile("cert.pem", "key.pem"),
 	)
 
 	go func() {
@@ -60,7 +62,7 @@ func Test_Server(t *testing.T) {
 	}()
 
 	go func() {
-		err := srv.Run("ws://0.0.0.0:8081/ws")
+		err := srv.Run("wss://0.0.0.0:8081/ws")
 		if err != nil {
 			t.Error(err)
 		}
@@ -80,7 +82,8 @@ func Test_ClientWs(t *testing.T) {
 	//development 123.56.103.77:7090
 	//production kfws.qiyejiaoyou.com:7090
 	f := func(uid string, os string) {
-		conn, response, err := websocket.DefaultDialer.Dial("ws://localhost:8081/ws", nil)
+		dialer := websocket.Dialer{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+		conn, response, err := dialer.Dial("wss://localhost:8081/ws", nil)
 		if err != nil {
 			t.Error(err)
 			return
@@ -132,7 +135,7 @@ func Test_ClientTcp(t *testing.T) {
 	//development 123.56.103.77:7090
 	//production kfws.qiyejiaoyou.com:7090
 	f := func(uid string, os string) {
-		conn, err := net.Dial("tcp", "localhost:8080")
+		conn, err := tls.Dial("tcp", "localhost:8080", &tls.Config{InsecureSkipVerify: true})
 		if err != nil {
 			t.Error(err)
 			return

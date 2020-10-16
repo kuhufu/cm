@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/protocol/consts"
+	"sync"
 	"time"
 
 	logger "github.com/kuhufu/cm/logger"
 	"github.com/kuhufu/cm/server/cm"
-	"github.com/kuhufu/cm/server/listener"
 )
 
 const DefaultAuthTimeout = time.Second * 10
@@ -23,10 +23,11 @@ type MessageHandler interface {
 type Server struct {
 	AuthTimeout      time.Duration
 	HeartbeatTimeout time.Duration
-
-	cm             *cm.ConnManager
-	addr           string
-	messageHandler MessageHandler
+	cm               *cm.ConnManager
+	addr             string
+	messageHandler   MessageHandler
+	opts             Options
+	mu               sync.Mutex
 }
 
 func NewServer(opts ...Option) *Server {
@@ -49,8 +50,21 @@ func NewServer(opts ...Option) *Server {
 	return s
 }
 
-func (srv *Server) Run(addr string) error {
-	ln, err := listener.Get(addr)
+func (srv *Server) optsCopy(opts ...Option) Options {
+	srvCpy := *srv
+
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+
+	for _, opt := range opts {
+		opt(&srvCpy)
+	}
+
+	return srvCpy.opts
+}
+
+func (srv *Server) Run(addr string, opts ...Option) error {
+	ln, err := GetListener(addr, srv.optsCopy(opts...))
 	if err != nil {
 		return err
 	}
