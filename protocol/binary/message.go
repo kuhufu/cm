@@ -4,12 +4,14 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/kuhufu/cm/protocol/Interface"
 	"io"
 )
 
 type Cmd uint32
 
 const (
+	CmdUnknown    = Cmd(0)
 	CmdAuth       = Cmd(1)
 	CmdPush       = Cmd(2)
 	CmdHeartbeat  = Cmd(3)
@@ -35,11 +37,6 @@ const (
 	DefaultHeaderLen   = 20
 	MaxBodyLen         = 2 * MB
 )
-
-//标记接口，需要一次性写入完整消息，否则头和body将分开写
-type NeedFullWrite interface {
-	MessageNeedFullWrite() bool
-}
 
 var (
 	ErrBodyLenOverLimit = errors.New("body length over limit")
@@ -73,7 +70,7 @@ func NewMessage() *Message {
 func newCustomMessage(cmd Cmd, body []byte) *Message {
 	message := NewMessage()
 	message.SetHeaderLen(DefaultHeaderLen)
-	message.SetCmd(cmd)
+	message.SetCmd(uint32(cmd))
 	message.SetBody(body)
 	return message
 }
@@ -96,22 +93,22 @@ func (m *Message) HeaderString() string {
 	)
 }
 
-func (m *Message) SetMagicNumber(n uint32) *Message {
+func (m *Message) SetMagicNumber(n uint32) Interface.Message {
 	binary.BigEndian.PutUint32(m.header[0:4], n)
 	return m
 }
 
-func (m *Message) SetHeaderLen(n uint32) *Message {
+func (m *Message) SetHeaderLen(n uint32) Interface.Message {
 	binary.BigEndian.PutUint32(m.header[4:8], n)
 	return m
 }
 
-func (m *Message) SetCmd(cmd Cmd) *Message {
-	binary.BigEndian.PutUint32(m.header[8:12], uint32(cmd))
+func (m *Message) SetCmd(cmd uint32) Interface.Message {
+	binary.BigEndian.PutUint32(m.header[8:12], cmd)
 	return m
 }
 
-func (m *Message) SetRequestId(n uint32) *Message {
+func (m *Message) SetRequestId(n uint32) Interface.Message {
 	binary.BigEndian.PutUint32(m.header[12:16], n)
 	return m
 }
@@ -128,8 +125,8 @@ func (m *Message) HeaderLen() uint32 {
 	return binary.BigEndian.Uint32(m.header[4:8])
 }
 
-func (m *Message) Cmd() Cmd {
-	return Cmd(binary.BigEndian.Uint32(m.header[8:12]))
+func (m *Message) Cmd() uint32 {
+	return binary.BigEndian.Uint32(m.header[8:12])
 }
 
 func (m *Message) RequestId() uint32 {
@@ -148,7 +145,7 @@ func (m *Message) String() string {
 	)
 }
 
-func (m *Message) SetBody(data []byte) *Message {
+func (m *Message) SetBody(data []byte) Interface.Message {
 	m.setBodyLen(uint32(len(data)))
 	m.body = data
 	return m
@@ -156,6 +153,29 @@ func (m *Message) SetBody(data []byte) *Message {
 
 func (m *Message) Body() []byte {
 	return m.body
+}
+
+func (m *Message) ReadFrom(r io.Reader) (int64, error) {
+	header := m.header[:]
+
+	//读取头部
+	n, err := io.ReadFull(r, header)
+	if err != nil {
+		return int64(n), err
+	}
+
+	if err := m.validHeader(); err != nil {
+		return int64(n), err
+	}
+
+	body := make([]byte, m.BodyLen())
+	n, err = io.ReadFull(r, body)
+	if err != nil {
+		return int64(n), err
+	}
+	m.SetBody(body)
+
+	return 0, nil
 }
 
 func (m *Message) WriteTo(w io.Writer) (int64, error) {
@@ -171,27 +191,6 @@ func (m *Message) WriteTo(w io.Writer) (int64, error) {
 	}
 	nb, err := w.Write(m.body)
 	return int64(n + nb), err
-}
-
-func (m *Message) Decode(r io.Reader) error {
-	header := m.header[:]
-
-	//读取头部
-	if _, err := io.ReadFull(r, header); err != nil {
-		return err
-	}
-
-	if err := m.validHeader(); err != nil {
-		return err
-	}
-
-	body := make([]byte, m.BodyLen())
-	if _, err := io.ReadFull(r, body); err != nil {
-		return err
-	}
-	m.SetBody(body)
-
-	return nil
 }
 
 func (m *Message) validHeader() error {
@@ -218,6 +217,11 @@ func (m *Message) validHeader() error {
 	return nil
 }
 
+func (m *Message) Decode(r io.Reader) error {
+	_, err := m.ReadFrom(r)
+	return err
+}
+
 func (m *Message) Encode() []byte {
 	data := make([]byte, DefaultHeaderLen+m.BodyLen())
 
@@ -238,7 +242,7 @@ func Read(r io.Reader) (*Message, error) {
 }
 
 func writerNeedFullWrite(w io.Writer) bool {
-	if v, ok := w.(NeedFullWrite); ok && v.MessageNeedFullWrite() {
+	if v, ok := w.(Interface.NeedFullWrite); ok && v.MessageNeedFullWrite() {
 		return true
 	}
 	return false

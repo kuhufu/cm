@@ -3,7 +3,9 @@ package protobuf
 import (
 	"encoding/binary"
 	"github.com/golang/protobuf/proto"
+	"github.com/kuhufu/cm/protocol/Interface"
 	binary2 "github.com/kuhufu/cm/protocol/binary"
+	"github.com/kuhufu/cm/protocol/consts"
 	"io"
 )
 
@@ -14,6 +16,14 @@ type MessageV1 struct {
 
 func NewMessage() *MessageV1 {
 	return &MessageV1{}
+}
+
+func NewDefaultMessage() *MessageV1 {
+	return &MessageV1{
+		msg: Message{
+			MagicNumber: consts.DefaultMagicNumber,
+		},
+	}
 }
 
 func (m *MessageV1) String() string {
@@ -75,17 +85,17 @@ func (m *MessageV1) Decode(reader io.Reader) error {
 	return err
 }
 
-func (m *MessageV1) Encode(writer io.Writer) error {
-	_, err := m.WriteTo(writer)
-	return err
+func (m *MessageV1) Encode() []byte {
+	marshal, _ := proto.Marshal(&m.msg)
+	return marshal
 }
 
 func (m *MessageV1) Size() uint32 {
 	return binary.LittleEndian.Uint32(m.size[:])
 }
 
-func (m *MessageV1) Cmd() Cmd {
-	return m.msg.Cmd
+func (m *MessageV1) Cmd() uint32 {
+	return uint32(m.msg.Cmd)
 }
 
 func (m *MessageV1) Body() []byte {
@@ -96,14 +106,15 @@ func (m *MessageV1) RequestId() uint32 {
 	return m.msg.RequestId
 }
 
-func (m *MessageV1) SetRequestId(id uint32) {
+func (m *MessageV1) SetRequestId(id uint32) Interface.Message {
 	m.msg.RequestId = id
+	return m
 }
 
-func (m *MessageV1) SetBody(body []byte) *MessageV1 {
+func (m *MessageV1) SetBody(body []byte) Interface.Message {
 	m.msg.Body = body
 }
 
-func (m *MessageV1) SetCmd(cmd uint32) *MessageV1 {
+func (m *MessageV1) SetCmd(cmd uint32) Interface.Message {
 	m.msg.Cmd = Cmd(cmd)
 }

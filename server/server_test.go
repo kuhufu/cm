@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
-	"github.com/kuhufu/cm/protocol/binary"
+	"github.com/kuhufu/cm/protocol"
+	"github.com/kuhufu/cm/protocol/consts"
 	"github.com/kuhufu/cm/server/cm"
 	"io/ioutil"
 	"log"
 	"net"
+	"net/url"
 	"testing"
 	"time"
 )
@@ -58,14 +60,14 @@ func Test_Server(t *testing.T) {
 	}()
 
 	go func() {
-		err := srv.Run("ws", "0.0.0.0:8081")
+		err := srv.Run("ws://0.0.0.0:8081/ws")
 		if err != nil {
 			t.Error(err)
 		}
 	}()
 
 	go func() {
-		err := srv.Run("tcp", "0.0.0.0:8080")
+		err := srv.Run("tcp://0.0.0.0:8080")
 		if err != nil {
 			t.Error(err)
 		}
@@ -95,8 +97,8 @@ func Test_ClientWs(t *testing.T) {
 
 		time.Sleep(time.Millisecond)
 
-		msg := binary.NewDefaultMessage()
-		msg.SetCmd(binary.CmdAuth)
+		msg := protocol.NewDefaultMessage()
+		msg.SetCmd(consts.CmdAuth)
 		msg.SetBody([]byte(fmt.Sprintf(`{"uid":"%v","os":"%v"}`, uid, os)))
 
 		fmt.Println(msg)
@@ -116,7 +118,7 @@ func Test_ClientWs(t *testing.T) {
 				return
 			}
 
-			msg.Decode(bytes2.NewReader(data))
+			msg.ReadFrom(bytes2.NewReader(data))
 			log.Println(os+":receive:", msg)
 		}
 	}
@@ -140,8 +142,8 @@ func Test_ClientTcp(t *testing.T) {
 
 		time.Sleep(time.Millisecond)
 
-		msg := binary.NewDefaultMessage()
-		msg.SetCmd(binary.CmdAuth)
+		msg := protocol.NewDefaultMessage()
+		msg.SetCmd(consts.CmdAuth)
 		msg.SetBody([]byte(fmt.Sprintf(`{"uid":"%v","os":"%v"}`, uid, os)))
 
 		fmt.Println(msg)
@@ -154,7 +156,7 @@ func Test_ClientTcp(t *testing.T) {
 
 		for {
 			//读
-			msg.Decode(conn)
+			msg.ReadFrom(conn)
 			log.Println(os+":receive:", msg)
 		}
 	}
@@ -162,4 +164,17 @@ func Test_ClientTcp(t *testing.T) {
 	go f("1", "android")
 
 	time.Sleep(time.Hour)
+}
+
+func TestScheme(t *testing.T) {
+	parse, err := url.Parse("localhost:8080")
+	if err != nil {
+		t.Error(err)
+	}
+
+	fmt.Println(parse.Scheme)
+	fmt.Println(parse.Host)
+	fmt.Println(parse.Hostname())
+	fmt.Println(parse.Path)
+	fmt.Println(parse.RequestURI())
 }

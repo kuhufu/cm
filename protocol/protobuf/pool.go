@@ -13,6 +13,6 @@ func GetPoolMsg() *MessageV1 {
 	return msg
 }
 
-func FreePoolMsg(msg *MessageV1) {
+func FreePoolMsg(msg interface{}) {
 	pool.Put(msg)
 }

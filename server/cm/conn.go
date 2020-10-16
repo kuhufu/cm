@@ -2,7 +2,8 @@ package cm
 
 import (
 	"fmt"
-	protocol "github.com/kuhufu/cm/protocol/binary"
+	"github.com/kuhufu/cm/protocol"
+	"github.com/kuhufu/cm/protocol/Interface"
 	"net"
 	"sync"
 	"time"
@@ -13,7 +14,7 @@ type Conn struct {
 	net.Conn
 	Id            string
 	UserId        string
-	outMsgQueue   chan *protocol.Message
+	outMsgQueue   chan Interface.Message
 	outBytesQueue chan []byte //广播使用，避免消息多次encode
 	exitC         chan struct{}
 
@@ -26,7 +27,7 @@ func NewConn(conn net.Conn) *Conn {
 	c := &Conn{
 		Conn:          conn,
 		exitC:         make(chan struct{}),
-		outMsgQueue:   make(chan *protocol.Message, 4),
+		outMsgQueue:   make(chan Interface.Message, 4),
 		outBytesQueue: make(chan []byte, 4),
 	}
 
@@ -56,13 +57,13 @@ func (conn *Conn) Exit() <-chan struct{} {
 
 //消息是否需要完整写入
 func (conn *Conn) MessageNeedFullWrite() bool {
-	if v, ok := conn.Conn.(protocol.NeedFullWrite); ok {
+	if v, ok := conn.Conn.(Interface.NeedFullWrite); ok {
 		return v.MessageNeedFullWrite()
 	}
 	return false
 }
 
-func (conn *Conn) EnterOutMsg(msg *protocol.Message) {
+func (conn *Conn) EnterOutMsg(msg Interface.Message) {
 	select {
 	case <-conn.exitC:
 		return
@@ -78,7 +79,7 @@ func (conn *Conn) EnterOutBytes(data []byte) {
 	}
 }
 
-func (conn *Conn) WaitOutMsg() <-chan *protocol.Message {
+func (conn *Conn) WaitOutMsg() <-chan Interface.Message {
 	return conn.outMsgQueue
 }
 

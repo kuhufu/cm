@@ -1,7 +1,6 @@
 package binary
 
 import (
-	"bytes"
 	"fmt"
 	"runtime"
 	"sync"
@@ -9,23 +8,6 @@ import (
 	"time"
 	"unsafe"
 )
-
-func TestMessage_Encode(t *testing.T) {
-	m := NewDefaultMessage().SetCmd(CmdAuth).SetBody([]byte("111"))
-	encode := m.Encode()
-
-	m2, err := Read(bytes.NewReader(encode))
-	if err != nil {
-		t.Error(err)
-	}
-
-	bodyEqual := string(m.body) == string(m2.body)
-	headerEqual := m.header == m2.header
-
-	if !bodyEqual || !headerEqual {
-		t.Error("消息编码错误")
-	}
-}
 
 func TestMessage_Decode(t *testing.T) {
 

@@ -2,7 +2,8 @@ package server
 
 import (
 	"fmt"
-	protocol "github.com/kuhufu/cm/protocol/binary"
+	"github.com/kuhufu/cm/protocol"
+	"github.com/kuhufu/cm/protocol/consts"
 	"time"
 
 	logger "github.com/kuhufu/cm/logger"
@@ -48,13 +49,13 @@ func NewServer(opts ...Option) *Server {
 	return s
 }
 
-func (srv *Server) Run(network, addr string) error {
-	ln, err := listener.Get(network, addr)
+func (srv *Server) Run(addr string) error {
+	ln, err := listener.Get(addr)
 	if err != nil {
 		return err
 	}
 
-	logger.Printf("listen on: %v://%v", network, addr)
+	logger.Printf("listen on: %v", addr)
 
 	for {
 		conn, err := ln.Accept()
@@ -84,7 +85,7 @@ func (srv *Server) serve(conn *cm.Conn) {
 
 	msg := protocol.NewMessage()
 	for {
-		if err := msg.Decode(conn); err != nil {
+		if _, err := msg.ReadFrom(conn); err != nil {
 			logger.Println(err)
 			return
 		}
@@ -92,7 +93,7 @@ func (srv *Server) serve(conn *cm.Conn) {
 		logger.Debug(msg)
 
 		switch msg.Cmd() {
-		case protocol.CmdAuth:
+		case consts.CmdAuth:
 			reply := srv.messageHandler.OnAuth(msg.Body())
 
 			if err = reply.err; err != nil {
@@ -148,26 +149,24 @@ func (srv *Server) ReadLoop(conn *cm.Conn) {
 
 	msg := protocol.NewMessage()
 	for {
-		err = msg.Decode(conn)
-
 		logger.Debugf("connId: %v, msg: %s", conn.Id, msg)
 
-		if err != nil {
+		if _, err = msg.ReadFrom(conn); err != nil {
 			return
 		}
 
 		switch msg.Cmd() {
-		case protocol.CmdPush:
+		case consts.CmdPush:
 			data := srv.messageHandler.OnReceive(conn, msg.Body())
 			conn.EnterOutMsg(CreateReplyMessage(msg, data))
-		case protocol.CmdHeartbeat:
+		case consts.CmdHeartbeat:
 			if !heartbeatTimer.Stop() {
 				err = ErrHeartbeatTimeout
 				return
 			}
 			heartbeatTimer.Reset(srv.HeartbeatTimeout)
 			conn.EnterOutMsg(CreateReplyMessage(msg, nil))
-		case protocol.CmdClose:
+		case consts.CmdClose:
 			return
 		default:
 			err = fmt.Errorf("未知的cmd: %v", msg.Cmd())
@@ -210,7 +209,7 @@ func (srv *Server) WriteLoop(conn *cm.Conn) {
 //推送到连接
 func (srv *Server) PushToConn(connId string, data []byte) error {
 	msg := protocol.GetPoolMsg()
-	msg.SetBody(data).SetCmd(protocol.CmdServerPush)
+	msg.SetBody(data).SetCmd(consts.CmdServerPush)
 
 	if conn, ok := srv.GetConn(connId); ok {
 		conn.EnterOutMsg(msg)
@@ -225,7 +224,7 @@ func (srv *Server) PushToConn(connId string, data []byte) error {
 
 //推送到设备组
 func (srv *Server) PushToDeviceGroup(userId string, data []byte) error {
-	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(protocol.CmdServerPush)
+	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(consts.CmdServerPush)
 	data = msg.Encode()
 	protocol.FreePoolMsg(msg)
 
@@ -243,7 +242,7 @@ func (srv *Server) PushToDeviceGroup(userId string, data []byte) error {
 
 //推送到群组
 func (srv *Server) PushToGroup(groupId string, data []byte) {
-	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(protocol.CmdServerPush)
+	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(consts.CmdServerPush)
 	data = msg.Encode()
 	protocol.FreePoolMsg(msg)
 

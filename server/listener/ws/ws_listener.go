@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 )
 import "github.com/gorilla/websocket"
@@ -37,6 +38,8 @@ func (a *Addr) String() string {
 
 type Listener struct {
 	Address   string
+	Host      string
+	Path      string
 	upgrader  websocket.Upgrader
 	exitC     chan struct{}
 	connC     chan *Conn
@@ -45,13 +48,20 @@ type Listener struct {
 }
 
 func Listen(network, addr string) (*Listener, error) {
-	switch network {
-	case "ws", "wss":
-	default:
+	if network != "ws" && network != "wss" {
 		return nil, errors.New("not support network: " + network)
 	}
+
+	var path = "/"
+	index := strings.IndexByte(addr, '/')
+	if index >= 0 {
+		path = addr[index:]
+		addr = addr[:index]
+	}
+
 	w := &Listener{
 		Address: addr,
+		Path:    path,
 		connC:   make(chan *Conn, 4),
 		addr: &Addr{
 			network: network,
@@ -73,8 +83,7 @@ func (w *Listener) Accept() (net.Conn, error) {
 }
 
 func (w *Listener) RunHttpUpgrader() {
-	path := "/ws"
-	http.HandleFunc(path, func(writer http.ResponseWriter, reader *http.Request) {
+	http.HandleFunc(w.Path, func(writer http.ResponseWriter, reader *http.Request) {
 		log.Println("收到ws升级请求")
 		conn, err := w.upgrader.Upgrade(writer, reader, nil)
 		if err != nil {
@@ -85,7 +94,7 @@ func (w *Listener) RunHttpUpgrader() {
 		w.connC <- &Conn{conn: conn}
 	})
 
-	log.Printf("http://%v%v", w.Address, path)
+	log.Printf("http://%v%v", w.Address, w.Path)
 
 	err := http.ListenAndServe(w.Address, nil)
 	if err != nil {
