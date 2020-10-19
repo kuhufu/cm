@@ -168,7 +168,15 @@ func (m *Message) ReadFrom(r io.Reader) (int64, error) {
 		return int64(n), err
 	}
 
-	body := make([]byte, m.BodyLen())
+	//一个小优化
+	body := m.body
+	bodyLen := int(m.BodyLen())
+	if cap(body) < bodyLen {
+		body = make([]byte, bodyLen)
+	} else {
+		body = body[:bodyLen]
+	}
+
 	n, err = io.ReadFull(r, body)
 	if err != nil {
 		return int64(n), err

@@ -10,9 +10,6 @@ import (
 	logger "github.com/kuhufu/cm/logger"
 )
 
-const DefaultAuthTimeout = time.Second * 10
-const DefaultHeartBeatTimeout = time.Second * 90
-
 type Handler interface {
 	OnAuth(data []byte) *AuthReply
 	OnReceive(channel *Channel, data []byte) (resp []byte)
@@ -28,11 +25,8 @@ type Server struct {
 
 func NewServer(opts ...Option) *Server {
 	s := &Server{
-		cm: NewManager(),
-		opts: Options{
-			AuthTimeout:      DefaultAuthTimeout,
-			HeartbeatTimeout: DefaultAuthTimeout,
-		},
+		cm:   NewManager(),
+		opts: defaultOptions(),
 	}
 
 	for _, opt := range opts {
@@ -185,30 +179,30 @@ func (srv *Server) readLoop(channel *Channel) {
 	}
 }
 
-func (srv *Server) writeLoop(conn *Channel) {
+func (srv *Server) writeLoop(channel *Channel) {
 	var err error
 	defer func() {
 		if err != nil {
-			logger.Printf("%v, writer 出错: %v", conn, err)
+			logger.Printf("%v, writer 出错: %v", channel, err)
 		} else {
-			logger.Printf("%v, writer 退出", conn)
+			logger.Printf("%v, writer 退出", channel)
 		}
 	}()
 
 	for {
 		select {
-		case <-conn.Exit():
+		case <-channel.Exit():
 			return
-		case msg := <-conn.WaitOutMsg():
-			_, err = msg.WriteTo(conn)
+		case msg := <-channel.WaitOutMsg():
+			_, err = msg.WriteTo(channel)
 			//不能对这个连接进行并发写，WriteTo操作不是原子的，WriteTo先写header再写body，如果对连接进行并发写，会出现错误的数据
 			//正常情况下header和body一一对应[header1,body1,header2,body2]，并发写可能会出现[header1,header2,body1,body2]
 			protocol.FreePoolMsg(msg)
 			if err != nil {
 				return
 			}
-		case data := <-conn.WaitOutBytes(): //多播专用chan
-			if _, err = conn.Write(data); err != nil {
+		case data := <-channel.WaitOutBytes(): //多播专用chan
+			if _, err = channel.Write(data); err != nil {
 				return
 			}
 		}
@@ -225,6 +219,7 @@ func (srv *Server) addChannel(channel *Channel, roomId RoomId, channelId Channel
 
 	channel.Id = channelId
 	channel.ClientType = channelId
+	channel.RoomId = roomId
 	channel.OnClose = func() {
 		logger.Debugf("channel onClose")
 		srv.cm.GetOrCreate(roomId).DelIfEqual(channelId, channel)
@@ -237,17 +232,17 @@ func (srv *Server) addChannel(channel *Channel, roomId RoomId, channelId Channel
 	}
 }
 
-func (srv *Server) Unicast(data []byte, channelId RoomId) error {
-	var channel *Room
+func (srv *Server) Unicast(data []byte, roomId RoomId, filters ...CastFilter) error {
+	var room *Room
 	var ok bool
 
-	if channel, ok = srv.cm.Get(channelId); !ok {
+	if room, ok = srv.cm.Get(roomId); !ok {
 		return ErrConnNotExist
 	}
 
 	data = srvPushMsgBytes(data)
-	channel.Range(func(key ClientType, conn *Channel) {
-		conn.EnterOutBytes(data)
+	room.Range(func(id ChannelId, channel *Channel) {
+		channel.EnterOutBytes(data)
 	})
 
 	return nil
@@ -257,9 +252,9 @@ func (srv *Server) Multicast(data []byte, roomIds ...RoomId) {
 	data = srvPushMsgBytes(data)
 
 	for _, id := range roomIds {
-		if channel, ok := srv.cm.Get(id); ok {
-			channel.Range(func(id ChannelId, conn *Channel) {
-				conn.EnterOutBytes(data)
+		if room, ok := srv.cm.Get(id); ok {
+			room.Range(func(id ChannelId, channel *Channel) {
+				channel.EnterOutBytes(data)
 			})
 		}
 	}

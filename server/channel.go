@@ -6,6 +6,7 @@ type Channel struct {
 	*Conn
 	Id         ChannelId
 	ClientType ClientType
+	RoomId     RoomId
 	status     int32
 }
 

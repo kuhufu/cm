@@ -21,6 +21,13 @@ type Options struct {
 	Handler Handler
 }
 
+func defaultOptions() Options {
+	return Options{
+		AuthTimeout:      time.Second * 10,
+		HeartbeatTimeout: time.Second * 90,
+	}
+}
+
 type Option func(o *Options)
 
 func WithAuthTimeout(duration time.Duration) Option {
