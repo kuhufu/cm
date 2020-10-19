@@ -10,13 +10,11 @@ import (
 	"time"
 )
 
-type ClientType = string
 type ChannelId = string
 
 type Channel struct {
 	net.Conn
 	Id            ChannelId
-	ClientType    ClientType
 	RoomId        RoomId
 	status        int32
 	outMsgQueue   chan Interface.Message
@@ -28,10 +26,9 @@ type Channel struct {
 	OnClose       func()    //close事件
 }
 
-func (c *Channel) Init(roomId RoomId, clientType ClientType) {
+func (c *Channel) Init(roomId RoomId, channelId ChannelId) {
 	c.RoomId = roomId
-	c.ClientType = clientType
-	c.Id = fmt.Sprintf("%v_%v", roomId, clientType)
+	c.Id = fmt.Sprintf("%v_%v", roomId, channelId)
 }
 
 func NewChannel(conn net.Conn) *Channel {
@@ -118,5 +115,5 @@ func (c *Channel) StatusOk() bool {
 }
 
 func (c *Channel) String() string {
-	return fmt.Sprintf("room:%v, client_type:%v", c.RoomId, c.ClientType)
+	return fmt.Sprintf("room: %v, channel_id: %v", c.RoomId, c.Id)
 }

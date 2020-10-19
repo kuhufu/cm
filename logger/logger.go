@@ -56,13 +56,13 @@ func (l *Logger) Logf(level Level, format string, args ...interface{}) {
 
 func (l *Logger) Log(level Level, args ...interface{}) {
 	if l.IsLevelEnabled(level) {
-		log.Print(append([]interface{}{fmt.Sprintf("[%v] ", strMap[level])}, args...))
+		log.Print(append([]interface{}{fmt.Sprintf("[%v] ", strMap[level])}, args...)...)
 	}
 }
 
 func (l *Logger) Logln(level Level, args ...interface{}) {
 	if l.IsLevelEnabled(level) {
-		log.Println(append([]interface{}{fmt.Sprintf("[%v] ", strMap[level])}, args...))
+		log.Println(append([]interface{}{fmt.Sprintf("[%v] ", strMap[level])}, args...)...)
 	}
 }
 

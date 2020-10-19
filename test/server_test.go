@@ -29,15 +29,15 @@ func (h Handler) OnAuth(data []byte) *server.AuthReply {
 	json.Unmarshal(data, &f)
 
 	return &server.AuthReply{
-		Ok:         true,
-		ClientType: f.Uid + ":" + f.Os,
-		RoomId:     f.Uid,
-		GroupIds:   []string{"g1", "g2"},
-		Data:       []byte("hello"),
+		Ok:        true,
+		ChannelId: f.Uid + ":" + f.Os,
+		RoomId:    f.Uid,
+		GroupIds:  []string{"g1", "g2"},
+		Data:      []byte("hello"),
 	}
 }
 
-func (h Handler) OnReceive(srcConn *server.Channel, data []byte) (resp []byte) {
+func (h Handler) OnReceive(c *server.Channel, data []byte) (resp []byte) {
 	fmt.Println("OnReceive")
 	return data
 }
@@ -50,7 +50,7 @@ func Test_Server(t *testing.T) {
 	srv := server.NewServer(
 		server.WithHandler(&Handler{}),
 		server.WithAuthTimeout(time.Second*10),
-		server.WithHeartbeatTimeout(time.Minute*100),
+		server.WithHeartbeatTimeout(time.Second*3),
 		server.WithDebugLog(),
 		server.WithCertAndKeyFile("cert.pem", "key.pem"),
 	)

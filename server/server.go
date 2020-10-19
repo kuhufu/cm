@@ -10,12 +10,6 @@ import (
 	logger "github.com/kuhufu/cm/logger"
 )
 
-type Handler interface {
-	OnAuth(data []byte) *AuthReply
-	OnReceive(channel *Channel, data []byte) (resp []byte)
-	OnClose(channel *Channel)
-}
-
 type Server struct {
 	cm          *Manager
 	opts        Options
@@ -119,7 +113,7 @@ func (srv *Server) serve(channel *Channel) {
 					channel.Metadata.Store(k, v)
 				}
 
-				srv.addChannel(channel, reply.RoomId, reply.ClientType)
+				srv.addChannel(channel, reply.RoomId, reply.ChannelId)
 				goto authOk
 			}
 		default:
@@ -138,9 +132,9 @@ func (srv *Server) readLoop(channel *Channel) {
 	defer func() { //在defer里面关闭连接
 		heartbeatTimer.Stop()
 		if err != nil {
-			logger.Printf("%v, reader 出错: %v", channel, err)
+			logger.Printf("%v, reader error: %v", channel, err)
 		} else {
-			logger.Printf("%v, reader 退出", channel, channel.CreateTime)
+			logger.Printf("%v, reader exit", channel, channel.CreateTime)
 		}
 	}()
 
@@ -181,9 +175,9 @@ func (srv *Server) writeLoop(channel *Channel) {
 	var err error
 	defer func() {
 		if err != nil {
-			logger.Printf("%v, writer 出错: %v", channel, err)
+			logger.Printf("%v, writer error: %v", channel, err)
 		} else {
-			logger.Printf("%v, writer 退出", channel)
+			logger.Printf("%v, writer exit", channel)
 		}
 	}()
 
@@ -207,22 +201,22 @@ func (srv *Server) writeLoop(channel *Channel) {
 	}
 }
 
-func (srv *Server) addChannel(channel *Channel, roomId RoomId, clientType ClientType) {
-	if clientType == "" {
-		panic("clientType cannot be empty")
+func (srv *Server) addChannel(channel *Channel, roomId RoomId, channelId ChannelId) {
+	if channelId == "" {
+		panic("channel_id cannot be empty")
 	}
-	logger.Debugf("new channel, room_id: %v, client_type: %v", roomId, clientType)
+	logger.Debugf("new channel, room_id: %v, channel_id: %v", roomId, channelId)
 
 	srv.allChannels.Store(channel, nil)
 
-	channel.Init(roomId, clientType)
+	channel.Init(roomId, channelId)
 	channel.OnClose = func() {
 		logger.Debugf("channel onClose")
-		srv.cm.GetOrCreate(roomId).DelIfEqual(clientType, channel)
+		srv.cm.GetOrCreate(roomId).DelIfEqual(channelId, channel)
 		srv.allChannels.Delete(channel)
 	}
 
-	oldChannel := srv.cm.GetOrCreate(roomId).AddOrReplace(clientType, channel)
+	oldChannel := srv.cm.GetOrCreate(roomId).AddOrReplace(channelId, channel)
 	if oldChannel != nil {
 		oldChannel.Close()
 	}

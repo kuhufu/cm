@@ -18,11 +18,11 @@ type Conn struct {
 	wL sync.Mutex
 }
 
-func (w *Conn) Read(b []byte) (n int, err error) {
-	w.rL.Lock()
-	defer w.rL.Unlock()
+func (c *Conn) Read(b []byte) (n int, err error) {
+	c.rL.Lock()
+	defer c.rL.Unlock()
 
-	reader := w.reader
+	reader := c.reader
 	left := len(b)
 
 	for left != 0 {
@@ -35,7 +35,7 @@ func (w *Conn) Read(b []byte) (n int, err error) {
 		}
 
 		if left != 0 {
-			typ, data, err := w.conn.ReadMessage()
+			typ, data, err := c.conn.ReadMessage()
 			if err != nil {
 				return len(b) - left, err
 			}
@@ -47,52 +47,52 @@ func (w *Conn) Read(b []byte) (n int, err error) {
 		}
 	}
 
-	w.reader = reader
+	c.reader = reader
 
 	return len(b) - left, nil
 }
 
-func (w *Conn) Write(b []byte) (n int, err error) {
-	w.wL.Lock()
-	defer w.wL.Unlock()
+func (c *Conn) Write(b []byte) (n int, err error) {
+	c.wL.Lock()
+	defer c.wL.Unlock()
 	//writeMessage不是线程安全的
-	err = w.conn.WriteMessage(websocket.BinaryMessage, b)
+	err = c.conn.WriteMessage(websocket.BinaryMessage, b)
 	if err != nil {
 		return 0, err
 	}
 	return len(b), nil
 }
 
-func (w *Conn) Close() error {
-	return w.conn.Close()
+func (c *Conn) Close() error {
+	return c.conn.Close()
 }
 
-func (w *Conn) LocalAddr() net.Addr {
-	return w.conn.LocalAddr()
+func (c *Conn) LocalAddr() net.Addr {
+	return c.conn.LocalAddr()
 }
 
-func (w *Conn) RemoteAddr() net.Addr {
-	return w.conn.RemoteAddr()
+func (c *Conn) RemoteAddr() net.Addr {
+	return c.conn.RemoteAddr()
 }
 
-func (w *Conn) SetDeadline(t time.Time) error {
-	err := w.conn.SetReadDeadline(t)
+func (c *Conn) SetDeadline(t time.Time) error {
+	err := c.conn.SetReadDeadline(t)
 	if err != nil {
 		return err
 	}
-	err = w.conn.SetWriteDeadline(t)
+	err = c.conn.SetWriteDeadline(t)
 	return err
 }
 
-func (w *Conn) SetReadDeadline(t time.Time) error {
-	return w.conn.SetReadDeadline(t)
+func (c *Conn) SetReadDeadline(t time.Time) error {
+	return c.conn.SetReadDeadline(t)
 }
 
-func (w *Conn) SetWriteDeadline(t time.Time) error {
-	return w.conn.SetWriteDeadline(t)
+func (c *Conn) SetWriteDeadline(t time.Time) error {
+	return c.conn.SetWriteDeadline(t)
 }
 
 //protocol的标记接口，标记是否需要一次性写入整个消息
-func (w *Conn) MessageNeedFullWrite() bool {
+func (c *Conn) MessageNeedFullWrite() bool {
 	return true
 }
