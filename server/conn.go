@@ -1,7 +1,6 @@
-package cm
+package server
 
 import (
-	"fmt"
 	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/protocol/Interface"
 	"net"
@@ -11,8 +10,6 @@ import (
 
 type Conn struct {
 	net.Conn
-	Id            string
-	UserId        string
 	outMsgQueue   chan Interface.Message
 	outBytesQueue chan []byte //广播使用，避免消息多次encode
 	exitC         chan struct{}
@@ -20,6 +17,7 @@ type Conn struct {
 	closeOnce  sync.Once //保证连接只关闭一次
 	CreateTime time.Time //创建时间
 	Metadata   sync.Map  //拓展信息可自由添加
+	OnClose    func()    //close事件
 }
 
 func NewConn(conn net.Conn) *Conn {
@@ -35,20 +33,15 @@ func NewConn(conn net.Conn) *Conn {
 	return c
 }
 
-func (conn *Conn) String() string {
-	t := conn.CreateTime.Format("2006-01-02 03:04:05")
-	return fmt.Sprintf("id: %v, user_id: %v, create_time: %v", conn.Id, conn.UserId, t)
-}
-
-func (conn *Conn) Init(userId, connId string) {
-	conn.UserId = userId
-	conn.Id = connId
-}
-
 func (conn *Conn) Close() error {
 	var err error
 	conn.closeOnce.Do(func() {
 		close(conn.exitC)
+
+		if conn.OnClose != nil {
+			conn.OnClose()
+		}
+
 		err = conn.Conn.Close()
 		conn.Empty()
 	})

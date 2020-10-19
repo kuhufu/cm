@@ -9,7 +9,6 @@ import (
 	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/protocol/consts"
 	"github.com/kuhufu/cm/server"
-	"github.com/kuhufu/cm/server/cm"
 	"io/ioutil"
 	"log"
 	"net/url"
@@ -30,20 +29,20 @@ func (h Handler) OnAuth(data []byte) *server.AuthReply {
 	json.Unmarshal(data, &f)
 
 	return &server.AuthReply{
-		Ok:       true,
-		ConnId:   f.Uid + ":" + f.Os,
-		UserId:   f.Uid,
-		GroupIds: []string{"g1", "g2"},
-		Data:     []byte("hello"),
+		Ok:        true,
+		ChannelId: f.Uid + ":" + f.Os,
+		RoomId:    f.Uid,
+		GroupIds:  []string{"g1", "g2"},
+		Data:      []byte("hello"),
 	}
 }
 
-func (h Handler) OnReceive(srcConn *cm.Conn, data []byte) (resp []byte) {
+func (h Handler) OnReceive(srcConn *server.Channel, data []byte) (resp []byte) {
 	fmt.Println("OnReceive")
 	return data
 }
 
-func (h Handler) OnClose(conn *cm.Conn) {
+func (h Handler) OnClose(conn *server.Channel) {
 	fmt.Println("OnClose 连接已关闭")
 }
 
@@ -52,15 +51,9 @@ func Test_Server(t *testing.T) {
 		server.WithHandler(&Handler{}),
 		server.WithAuthTimeout(time.Second*10),
 		server.WithHeartbeatTimeout(time.Minute*100),
+		server.WithDebugLog(),
 		server.WithCertAndKeyFile("cert.pem", "key.pem"),
 	)
-
-	go func() {
-		for {
-			time.Sleep(time.Second)
-			srv.PushToDeviceGroup("1", []byte("hello"))
-		}
-	}()
 
 	go func() {
 		err := srv.Run("wss://0.0.0.0:8081/ws")
@@ -73,6 +66,14 @@ func Test_Server(t *testing.T) {
 		err := srv.Run("tcp://0.0.0.0:8080")
 		if err != nil {
 			t.Error(err)
+		}
+	}()
+
+	go func() {
+		for {
+			time.Sleep(time.Second)
+			//err := srv.Unicast([]byte("hello"), "1")
+			srv.Broadcast([]byte("hello"))
 		}
 	}()
 
@@ -122,7 +123,11 @@ func Test_ClientWs(t *testing.T) {
 				return
 			}
 
-			msg.ReadFrom(bytes2.NewReader(data))
+			_, err = msg.ReadFrom(bytes2.NewReader(data))
+			if err != nil {
+				log.Println(err)
+				return
+			}
 			log.Println(os+":receive:", msg)
 		}
 	}
@@ -160,12 +165,16 @@ func Test_ClientTcp(t *testing.T) {
 
 		for {
 			//读
-			msg.ReadFrom(conn)
+			_, err := msg.ReadFrom(conn)
+			if err != nil {
+				log.Println(err)
+				return
+			}
 			log.Println(os+":receive:", msg)
 		}
 	}
 
-	go f("1", "android")
+	go f("2", "android")
 
 	time.Sleep(time.Hour)
 }

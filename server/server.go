@@ -8,7 +8,6 @@ import (
 	"time"
 
 	logger "github.com/kuhufu/cm/logger"
-	"github.com/kuhufu/cm/server/cm"
 )
 
 const DefaultAuthTimeout = time.Second * 10
@@ -16,19 +15,20 @@ const DefaultHeartBeatTimeout = time.Second * 90
 
 type Handler interface {
 	OnAuth(data []byte) *AuthReply
-	OnReceive(srcConn *cm.Conn, data []byte) (resp []byte)
-	OnClose(conn *cm.Conn)
+	OnReceive(channel *Channel, data []byte) (resp []byte)
+	OnClose(channel *Channel)
 }
 
 type Server struct {
-	cm   *cm.ConnManager
-	opts Options
-	mu   sync.Mutex
+	cm          *Manager
+	opts        Options
+	mu          sync.Mutex
+	allChannels sync.Map //方便广播
 }
 
 func NewServer(opts ...Option) *Server {
 	s := &Server{
-		cm: cm.NewConnManager(),
+		cm: NewManager(),
 		opts: Options{
 			AuthTimeout:      DefaultAuthTimeout,
 			HeartbeatTimeout: DefaultAuthTimeout,
@@ -74,34 +74,37 @@ func (srv *Server) Run(addr string, opts ...Option) error {
 			return err
 		}
 		logger.Printf("new connect: %v", conn.RemoteAddr())
-		go srv.serve(cm.NewConn(conn))
+		go srv.serve(&Channel{
+			Conn: NewConn(conn),
+		})
 	}
 }
 
-func (srv *Server) serve(conn *cm.Conn) {
+func (srv *Server) serve(channel *Channel) {
 	var err error
 	defer func() {
 		if err != nil {
 			logger.Println(err)
 		}
-		conn.Close()
+		channel.Close()
+		srv.opts.Handler.OnClose(channel)
 	}()
 
-	go srv.writeLoop(conn)
+	go srv.writeLoop(channel)
 
 	AuthTimer := time.AfterFunc(srv.opts.AuthTimeout, func() {
-		conn.Close()
+		channel.Close()
 		logger.Println("认证超时")
 	})
 
 	msg := protocol.NewMessage()
 	for {
-		if _, err := msg.ReadFrom(conn); err != nil {
+		if _, err := msg.ReadFrom(channel); err != nil {
 			logger.Println(err)
 			return
 		}
 
-		logger.Debug(msg)
+		//logger.Debug(msg)
 
 		switch msg.Cmd() {
 		case consts.CmdAuth:
@@ -111,7 +114,7 @@ func (srv *Server) serve(conn *cm.Conn) {
 				return
 			}
 
-			conn.EnterOutMsg(CreateReplyMessage(msg, reply.Data))
+			channel.EnterOutMsg(CreateReplyMessage(msg, reply.Data))
 
 			if reply.Ok {
 				if !AuthTimer.Stop() {
@@ -121,10 +124,10 @@ func (srv *Server) serve(conn *cm.Conn) {
 
 				//为连接添加拓展信息
 				for k, v := range reply.Metadata {
-					conn.Metadata.Store(k, v)
+					channel.Metadata.Store(k, v)
 				}
 
-				srv.addConn(conn, reply.UserId, reply.ConnId, reply.GroupIds)
+				srv.addChannel(channel, reply.RoomId, reply.ChannelId)
 				goto authOk
 			}
 		default:
@@ -133,50 +136,46 @@ func (srv *Server) serve(conn *cm.Conn) {
 		}
 	}
 authOk:
-	srv.readLoop(conn)
+	srv.readLoop(channel)
 }
 
-func (srv *Server) readLoop(conn *cm.Conn) {
+func (srv *Server) readLoop(channel *Channel) {
 	var err error
 	var heartbeatTimer *time.Timer
 
 	defer func() { //在defer里面关闭连接
-		srv.cm.RemoveConn(conn)
 		heartbeatTimer.Stop()
-
 		if err != nil {
-			logger.Printf("%v, reader出错: %v", conn, err)
+			logger.Printf("%v, reader 出错: %v", channel, err)
 		} else {
-			logger.Printf("%v, reader退出", conn, conn.CreateTime)
+			logger.Printf("%v, reader 退出", channel, channel.CreateTime)
 		}
-
-		srv.opts.Handler.OnClose(conn)
 	}()
 
 	heartbeatTimer = time.AfterFunc(srv.opts.HeartbeatTimeout, func() {
-		conn.Close()
+		channel.Close()
 		logger.Println("第一个心跳超时")
 	})
 
 	msg := protocol.NewMessage()
 	for {
-		logger.Debugf("connId: %v, msg: %s", conn.Id, msg)
-
-		if _, err = msg.ReadFrom(conn); err != nil {
+		if _, err = msg.ReadFrom(channel); err != nil {
 			return
 		}
 
+		logger.Debugf("channel_id: %v, msg: %s", channel.Id, msg)
+
 		switch msg.Cmd() {
 		case consts.CmdPush:
-			data := srv.opts.Handler.OnReceive(conn, msg.Body())
-			conn.EnterOutMsg(CreateReplyMessage(msg, data))
+			data := srv.opts.Handler.OnReceive(channel, msg.Body())
+			channel.EnterOutMsg(CreateReplyMessage(msg, data))
 		case consts.CmdHeartbeat:
 			if !heartbeatTimer.Stop() {
 				err = ErrHeartbeatTimeout
 				return
 			}
 			heartbeatTimer.Reset(srv.opts.HeartbeatTimeout)
-			conn.EnterOutMsg(CreateReplyMessage(msg, nil))
+			channel.EnterOutMsg(CreateReplyMessage(msg, nil))
 		case consts.CmdClose:
 			return
 		default:
@@ -186,14 +185,13 @@ func (srv *Server) readLoop(conn *cm.Conn) {
 	}
 }
 
-func (srv *Server) writeLoop(conn *cm.Conn) {
+func (srv *Server) writeLoop(conn *Channel) {
 	var err error
 	defer func() {
-		srv.cm.RemoveConn(conn)
 		if err != nil {
-			logger.Printf("%v, writer出错: %v", conn, err)
+			logger.Printf("%v, writer 出错: %v", conn, err)
 		} else {
-			logger.Printf("%v, writer退出", conn)
+			logger.Printf("%v, writer 退出", conn)
 		}
 	}()
 
@@ -217,125 +215,63 @@ func (srv *Server) writeLoop(conn *cm.Conn) {
 	}
 }
 
-//推送到连接
-func (srv *Server) PushToConn(connId string, data []byte) error {
-	conn, ok := srv.cm.GetConn(connId)
-	if !ok {
-		logger.Printf("连接不存在或已关闭, connId: %v", connId)
+func (srv *Server) addChannel(channel *Channel, roomId RoomId, channelId ChannelId) {
+	if channelId == "" {
+		panic("channelId cannot be empty")
+	}
+	logger.Debugf("new channel, room_id: %v, channel_id: %v", roomId, channelId)
+
+	srv.allChannels.Store(channel, nil)
+
+	channel.Id = channelId
+	channel.ClientType = channelId
+	channel.OnClose = func() {
+		logger.Debugf("channel onClose")
+		srv.cm.GetOrCreate(roomId).DelIfEqual(channelId, channel)
+		srv.allChannels.Delete(channel)
+	}
+
+	oldChannel := srv.cm.GetOrCreate(roomId).AddOrReplace(channelId, channel)
+	if oldChannel != nil {
+		oldChannel.Close()
+	}
+}
+
+func (srv *Server) Unicast(data []byte, channelId RoomId) error {
+	var channel *Room
+	var ok bool
+
+	if channel, ok = srv.cm.Get(channelId); !ok {
 		return ErrConnNotExist
 	}
 
-	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(consts.CmdServerPush)
-	conn.EnterOutMsg(msg)
-	protocol.FreePoolMsg(msg)
-
-	return nil
-}
-
-func (srv *Server) PushToUser(uid string, data []byte) {
-	group, ok := srv.cm.GetDeviceGroup(uid)
-	if !ok || group.Size() == 0 {
-		return
-	}
-
 	data = srvPushMsgBytes(data)
-
-	group.ForEach(func(conn *cm.Conn) {
-		conn.EnterOutBytes(data)
-	})
-
-}
-
-//推送到设备组
-func (srv *Server) PushToDeviceGroup(userId string, data []byte) error {
-	data = srvPushMsgBytes(data)
-
-	group, ok := srv.cm.GetDeviceGroup(userId)
-	if !ok {
-		logger.Printf("连接不存在或已关闭, userId: %v", userId)
-		return ErrConnNotExist
-	}
-
-	group.ForEach(func(conn *cm.Conn) {
+	channel.Range(func(key ClientType, conn *Channel) {
 		conn.EnterOutBytes(data)
 	})
 
 	return nil
 }
 
-//从群组中移除
-func (srv *Server) RemoveFromGroup(groupId, userId string) {
-	srv.cm.RemoveFromGroup(userId, groupId)
-}
-
-//推送到群组
-func (srv *Server) PushToGroup(groupId string, data []byte) {
-	g, ok := srv.cm.GetGroup(groupId)
-	if !ok {
-		return
-	}
-
+func (srv *Server) Multicast(data []byte, roomIds ...RoomId) {
 	data = srvPushMsgBytes(data)
 
-	g.ForEach(func(id cm.UserId, g *cm.DeviceGroup) {
-		g.ForEach(func(conn *cm.Conn) {
-			conn.EnterOutBytes(data)
-		})
+	for _, id := range roomIds {
+		if channel, ok := srv.cm.Get(id); ok {
+			channel.Range(func(id ChannelId, conn *Channel) {
+				conn.EnterOutBytes(data)
+			})
+		}
+	}
+}
+
+func (srv *Server) Broadcast(data []byte) {
+	data = srvPushMsgBytes(data)
+
+	srv.allChannels.Range(func(key, value interface{}) bool {
+		key.(*Channel).EnterOutBytes(data)
+		return true
 	})
-}
-
-func (srv *Server) addConn(conn *cm.Conn, userId, connId string, groupIds []string) {
-	if connId == "" {
-		panic("connId cannot be empty")
-	}
-
-	conn.Init(userId, connId)
-
-	logger.Printf("newConn: %v:%v", conn.Id, conn.CreateTime)
-
-	var oldConn *cm.Conn
-	srv.cm.With(func() {
-		oldConn = srv.cm.AddOrReplaceNoSync(connId, conn)
-		srv.cm.AddToGroupNoSync(conn.UserId, groupIds)
-	})
-
-	if oldConn != nil {
-		oldConn.Close()
-	}
-}
-
-func (srv *Server) unicast(data []byte, connId string) error {
-	conn, ok := srv.cm.GetConn(connId)
-	if !ok {
-		logger.Printf("连接不存在或已关闭, connId: %v", connId)
-		return ErrConnNotExist
-	}
-
-	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(consts.CmdServerPush)
-	conn.EnterOutMsg(msg)
-
-	return nil
-}
-
-func (srv *Server) multicast(data []byte, connIds ...string) {
-	data = srvPushMsgBytes(data)
-
-	items := make([]*cm.Conn, 0, len(connIds))
-
-	for _, connId := range connIds {
-		conn, _ := srv.cm.GetConn(connId)
-		items = append(items, conn)
-		conn.EnterOutBytes(data)
-	}
-}
-
-func (srv *Server) broadcast(data []byte) {
-	data = srvPushMsgBytes(data)
-
-	all := srv.cm.AllConn()
-	for _, conn := range all {
-		conn.EnterOutBytes(data)
-	}
 }
 
 func srvPushMsgBytes(data []byte) []byte {
