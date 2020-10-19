@@ -68,9 +68,7 @@ func (srv *Server) Run(addr string, opts ...Option) error {
 			return err
 		}
 		logger.Printf("new connect: %v", conn.RemoteAddr())
-		go srv.serve(&Channel{
-			Conn: NewConn(conn),
-		})
+		go srv.serve(NewChannel(conn))
 	}
 }
 

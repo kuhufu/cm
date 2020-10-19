@@ -4,8 +4,6 @@ import (
 	"sync"
 )
 
-type ClientType = string
-type ChannelId = string
 type RoomId = string
 
 type Room struct {

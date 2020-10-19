@@ -1,27 +1,35 @@
 package server
 
 import (
+	"fmt"
 	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/protocol/Interface"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
-type Conn struct {
+type ClientType = string
+type ChannelId = string
+
+type Channel struct {
 	net.Conn
+	Id            ChannelId
+	ClientType    ClientType
+	RoomId        RoomId
+	status        int32
 	outMsgQueue   chan Interface.Message
 	outBytesQueue chan []byte //广播使用，避免消息多次encode
 	exitC         chan struct{}
-
-	closeOnce  sync.Once //保证连接只关闭一次
-	CreateTime time.Time //创建时间
-	Metadata   sync.Map  //拓展信息可自由添加
-	OnClose    func()    //close事件
+	closeOnce     sync.Once //保证连接只关闭一次
+	CreateTime    time.Time //创建时间
+	Metadata      sync.Map  //拓展信息可自由添加
+	OnClose       func()    //close事件
 }
 
-func NewConn(conn net.Conn) *Conn {
-	c := &Conn{
+func NewChannel(conn net.Conn) *Channel {
+	c := &Channel{
 		Conn:          conn,
 		exitC:         make(chan struct{}),
 		outMsgQueue:   make(chan Interface.Message, 4),
@@ -29,73 +37,80 @@ func NewConn(conn net.Conn) *Conn {
 		CreateTime:    time.Now(),
 	}
 
-	//创建时间+内存地址，本地测试中创建时间可能会相同。在创建时间相同的情况下，内存地址必不相同
 	return c
 }
 
-func (conn *Conn) Close() error {
+func (c *Channel) Close() error {
 	var err error
-	conn.closeOnce.Do(func() {
-		close(conn.exitC)
+	c.closeOnce.Do(func() {
+		close(c.exitC)
 
-		if conn.OnClose != nil {
-			conn.OnClose()
+		if c.OnClose != nil {
+			c.OnClose()
 		}
 
-		err = conn.Conn.Close()
-		conn.Empty()
+		err = c.Conn.Close()
+		c.Empty()
 	})
 	return err
 }
 
-func (conn *Conn) Exit() <-chan struct{} {
-	return conn.exitC
+func (c *Channel) Exit() <-chan struct{} {
+	return c.exitC
 }
 
 //消息是否需要完整写入
-func (conn *Conn) MessageNeedFullWrite() bool {
-	if v, ok := conn.Conn.(Interface.NeedFullWrite); ok {
+func (c *Channel) MessageNeedFullWrite() bool {
+	if v, ok := c.Conn.(Interface.NeedFullWrite); ok {
 		return v.MessageNeedFullWrite()
 	}
 	return false
 }
 
-func (conn *Conn) EnterOutMsg(msg Interface.Message) {
+func (c *Channel) EnterOutMsg(msg Interface.Message) {
 	select {
-	case <-conn.exitC:
+	case <-c.exitC:
 		return
-	case conn.outMsgQueue <- msg:
+	case c.outMsgQueue <- msg:
 	}
 }
 
-func (conn *Conn) EnterOutBytes(data []byte) {
+func (c *Channel) EnterOutBytes(data []byte) {
 	select {
-	case <-conn.exitC:
+	case <-c.exitC:
 		return
-	case conn.outBytesQueue <- data:
+	case c.outBytesQueue <- data:
 	}
 }
 
-func (conn *Conn) WaitOutMsg() <-chan Interface.Message {
-	return conn.outMsgQueue
+func (c *Channel) WaitOutMsg() <-chan Interface.Message {
+	return c.outMsgQueue
 }
 
-func (conn *Conn) WaitOutBytes() <-chan []byte {
-	return conn.outBytesQueue
+func (c *Channel) WaitOutBytes() <-chan []byte {
+	return c.outBytesQueue
 }
 
 //清空消息，避免有goroutine阻塞在 outMsgQueue 或 outBytesQueue
-func (conn *Conn) Empty() {
+func (c *Channel) Empty() {
 	for {
 		select {
-		case msg := <-conn.outMsgQueue:
+		case msg := <-c.outMsgQueue:
 			protocol.FreePoolMsg(msg)
-		case <-conn.outBytesQueue:
+		case <-c.outBytesQueue:
 
 		default:
-			if len(conn.outMsgQueue) == 0 && len(conn.outBytesQueue) == 0 {
+			if len(c.outMsgQueue) == 0 && len(c.outBytesQueue) == 0 {
 				return
 			}
 		}
 	}
+}
+
+func (c *Channel) StatusOk() bool {
+	return atomic.LoadInt32(&c.status) == 0
+}
+
+func (c *Channel) String() string {
+	return fmt.Sprintf("room:%v, client_type:%v", c.RoomId, c.ClientType)
 }
