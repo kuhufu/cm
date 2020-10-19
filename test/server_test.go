@@ -29,11 +29,11 @@ func (h Handler) OnAuth(data []byte) *server.AuthReply {
 	json.Unmarshal(data, &f)
 
 	return &server.AuthReply{
-		Ok:        true,
-		ChannelId: f.Uid + ":" + f.Os,
-		RoomId:    f.Uid,
-		GroupIds:  []string{"g1", "g2"},
-		Data:      []byte("hello"),
+		Ok:         true,
+		ClientType: f.Uid + ":" + f.Os,
+		RoomId:     f.Uid,
+		GroupIds:   []string{"g1", "g2"},
+		Data:       []byte("hello"),
 	}
 }
 

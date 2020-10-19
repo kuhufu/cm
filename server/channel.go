@@ -28,6 +28,12 @@ type Channel struct {
 	OnClose       func()    //close事件
 }
 
+func (c *Channel) Init(roomId RoomId, clientType ClientType) {
+	c.RoomId = roomId
+	c.ClientType = clientType
+	c.Id = fmt.Sprintf("%v_%v", roomId, clientType)
+}
+
 func NewChannel(conn net.Conn) *Channel {
 	c := &Channel{
 		Conn:          conn,

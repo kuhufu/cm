@@ -10,6 +10,19 @@ import (
 
 type Cmd uint32
 
+var cmdMap = map[Cmd]string{
+	CmdUnknown:    "CmdUnknown",
+	CmdAuth:       "CmdAuth",
+	CmdPush:       "CmdPush",
+	CmdHeartbeat:  "CmdHeartbeat",
+	CmdClose:      "CmdClose",
+	CmdServerPush: "CmdServerPush",
+}
+
+func (c Cmd) String() string {
+	return cmdMap[c]
+}
+
 const (
 	CmdUnknown    = Cmd(0)
 	CmdAuth       = Cmd(1)
@@ -24,14 +37,6 @@ const (
 	MB = KB << 10
 )
 
-var cmdMap = map[Cmd]string{
-	CmdAuth:       "CmdAuth",
-	CmdPush:       "CmdPush",
-	CmdHeartbeat:  "CmdHeartbeat",
-	CmdClose:      "CmdClose",
-	CmdServerPush: "CmdServerPush",
-}
-
 const (
 	DefaultMagicNumber = 0x08
 	DefaultHeaderLen   = 20
@@ -44,10 +49,6 @@ var (
 	ErrWrongHeaderLen   = errors.New("wrong header length")
 	ErrWrongMagicNumber = errors.New("wrong wrong magic number")
 )
-
-func (c Cmd) String() string {
-	return cmdMap[c]
-}
 
 //magicNumber uint32
 //headerLen   uint32
@@ -65,14 +66,6 @@ func NewMessage() *Message {
 	return &Message{
 		body: nil,
 	}
-}
-
-func newCustomMessage(cmd Cmd, body []byte) *Message {
-	message := NewMessage()
-	message.SetHeaderLen(DefaultHeaderLen)
-	message.SetCmd(uint32(cmd))
-	message.SetBody(body)
-	return message
 }
 
 func NewDefaultMessage() *Message {
@@ -103,8 +96,8 @@ func (m *Message) SetHeaderLen(n uint32) Interface.Message {
 	return m
 }
 
-func (m *Message) SetCmd(cmd uint32) Interface.Message {
-	binary.BigEndian.PutUint32(m.header[8:12], cmd)
+func (m *Message) SetCmd(cmd Interface.Cmd) Interface.Message {
+	binary.BigEndian.PutUint32(m.header[8:12], uint32(cmd))
 	return m
 }
 
@@ -125,8 +118,8 @@ func (m *Message) HeaderLen() uint32 {
 	return binary.BigEndian.Uint32(m.header[4:8])
 }
 
-func (m *Message) Cmd() uint32 {
-	return binary.BigEndian.Uint32(m.header[8:12])
+func (m *Message) Cmd() Interface.Cmd {
+	return Interface.Cmd(binary.BigEndian.Uint32(m.header[8:12]))
 }
 
 func (m *Message) RequestId() uint32 {

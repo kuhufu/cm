@@ -1,6 +1,7 @@
 package Interface
 
 import (
+	"github.com/kuhufu/cm/protocol/consts"
 	"io"
 )
 
@@ -10,13 +11,28 @@ type Message interface {
 
 	Encode() []byte
 
-	Cmd() uint32
+	Cmd() Cmd
 	Body() []byte
 	RequestId() uint32
 
-	SetCmd(uint32) Message
+	SetCmd(Cmd) Message
 	SetBody([]byte) Message
 	SetRequestId(uint32) Message
+}
+
+type Cmd uint32
+
+var cmdMap = map[Cmd]string{
+	consts.CmdUnknown:    "CmdUnknown",
+	consts.CmdAuth:       "CmdAuth",
+	consts.CmdPush:       "CmdPush",
+	consts.CmdHeartbeat:  "CmdHeartbeat",
+	consts.CmdClose:      "CmdClose",
+	consts.CmdServerPush: "CmdServerPush",
+}
+
+func (c Cmd) String() string {
+	return cmdMap[c]
 }
 
 //标记接口，需要一次性写入完整消息，否则头和body将分开写

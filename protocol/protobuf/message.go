@@ -110,8 +110,8 @@ func (m *MessageV1) Size() uint32 {
 	return binary.LittleEndian.Uint32(m.size[:])
 }
 
-func (m *MessageV1) Cmd() uint32 {
-	return uint32(m.msg.Cmd)
+func (m *MessageV1) Cmd() Interface.Cmd {
+	return Interface.Cmd(m.msg.Cmd)
 }
 
 func (m *MessageV1) Body() []byte {
@@ -132,7 +132,7 @@ func (m *MessageV1) SetBody(body []byte) Interface.Message {
 	return m
 }
 
-func (m *MessageV1) SetCmd(cmd uint32) Interface.Message {
+func (m *MessageV1) SetCmd(cmd Interface.Cmd) Interface.Message {
 	m.msg.Cmd = Cmd(cmd)
 	return m
 }

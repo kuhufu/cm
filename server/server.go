@@ -119,7 +119,7 @@ func (srv *Server) serve(channel *Channel) {
 					channel.Metadata.Store(k, v)
 				}
 
-				srv.addChannel(channel, reply.RoomId, reply.ChannelId)
+				srv.addChannel(channel, reply.RoomId, reply.ClientType)
 				goto authOk
 			}
 		default:
@@ -207,24 +207,22 @@ func (srv *Server) writeLoop(channel *Channel) {
 	}
 }
 
-func (srv *Server) addChannel(channel *Channel, roomId RoomId, channelId ChannelId) {
-	if channelId == "" {
-		panic("channelId cannot be empty")
+func (srv *Server) addChannel(channel *Channel, roomId RoomId, clientType ClientType) {
+	if clientType == "" {
+		panic("clientType cannot be empty")
 	}
-	logger.Debugf("new channel, room_id: %v, channel_id: %v", roomId, channelId)
+	logger.Debugf("new channel, room_id: %v, client_type: %v", roomId, clientType)
 
 	srv.allChannels.Store(channel, nil)
 
-	channel.Id = channelId
-	channel.ClientType = channelId
-	channel.RoomId = roomId
+	channel.Init(roomId, clientType)
 	channel.OnClose = func() {
 		logger.Debugf("channel onClose")
-		srv.cm.GetOrCreate(roomId).DelIfEqual(channelId, channel)
+		srv.cm.GetOrCreate(roomId).DelIfEqual(clientType, channel)
 		srv.allChannels.Delete(channel)
 	}
 
-	oldChannel := srv.cm.GetOrCreate(roomId).AddOrReplace(channelId, channel)
+	oldChannel := srv.cm.GetOrCreate(roomId).AddOrReplace(clientType, channel)
 	if oldChannel != nil {
 		oldChannel.Close()
 	}
