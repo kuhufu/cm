@@ -232,7 +232,7 @@ func (srv *Server) addChannel(channel *Channel, roomId RoomId, channelId Channel
 	}
 }
 
-func (srv *Server) Unicast(data []byte, roomId RoomId, filters ...CastFilter) error {
+func (srv *Server) Unicast(data []byte, roomId RoomId) error {
 	var room *Room
 	var ok bool
 
