@@ -7,46 +7,55 @@ import (
 )
 
 type Options struct {
-	CertFile  string
-	KeyFile   string
+	//认证超时时间
+	AuthTimeout time.Duration
+	//心跳超时时间
+	HeartbeatTimeout time.Duration
+	//证书文件路径
+	CertFile string
+	//key文件路径
+	KeyFile string
+	//tls配置
 	TlsConfig *tls.Config
+	//handler
+	Handler Handler
 }
 
-type Option func(s *Server)
+type Option func(o *Options)
 
 func WithAuthTimeout(duration time.Duration) Option {
-	return func(s *Server) {
-		s.authTimeout = duration
+	return func(o *Options) {
+		o.AuthTimeout = duration
 	}
 }
 
 func WithHeartbeatTimeout(duration time.Duration) Option {
-	return func(s *Server) {
-		s.heartbeatTimeout = duration
+	return func(o *Options) {
+		o.HeartbeatTimeout = duration
 	}
 }
 
-func WithMessageHandler(handler Handler) Option {
-	return func(s *Server) {
-		s.handler = handler
+func WithHandler(handler Handler) Option {
+	return func(o *Options) {
+		o.Handler = handler
 	}
 }
 
 func WithDebugLog() Option {
-	return func(s *Server) {
+	return func(o *Options) {
 		logger.Init(logger.DebugLevel)
 	}
 }
 
 func WithCertAndKeyFile(cert, key string) Option {
-	return func(s *Server) {
-		s.opts.CertFile = cert
-		s.opts.KeyFile = key
+	return func(o *Options) {
+		o.CertFile = cert
+		o.KeyFile = key
 	}
 }
 
 func WithTlsConfig(config *tls.Config) Option {
-	return func(s *Server) {
-		s.opts.TlsConfig = config
+	return func(o *Options) {
+		o.TlsConfig = config
 	}
 }

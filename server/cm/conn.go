@@ -7,7 +7,6 @@ import (
 	"net"
 	"sync"
 	"time"
-	"unsafe"
 )
 
 type Conn struct {
@@ -18,9 +17,9 @@ type Conn struct {
 	outBytesQueue chan []byte //广播使用，避免消息多次encode
 	exitC         chan struct{}
 
-	closeOnce sync.Once //保证连接只关闭一次
-	Version   string    //创建连接时的版本号
-	Metadata  sync.Map  //拓展信息可自由添加
+	closeOnce  sync.Once //保证连接只关闭一次
+	CreateTime time.Time //创建时间
+	Metadata   sync.Map  //拓展信息可自由添加
 }
 
 func NewConn(conn net.Conn) *Conn {
@@ -29,11 +28,16 @@ func NewConn(conn net.Conn) *Conn {
 		exitC:         make(chan struct{}),
 		outMsgQueue:   make(chan Interface.Message, 4),
 		outBytesQueue: make(chan []byte, 4),
+		CreateTime:    time.Now(),
 	}
 
 	//创建时间+内存地址，本地测试中创建时间可能会相同。在创建时间相同的情况下，内存地址必不相同
-	c.Version = fmt.Sprintf("%x-%x", time.Now().UnixNano(), uintptr(unsafe.Pointer(c)))
 	return c
+}
+
+func (conn *Conn) String() string {
+	t := conn.CreateTime.Format("2006-01-02 03:04:05")
+	return fmt.Sprintf("id: %v, user_id: %v, create_time: %v", conn.Id, conn.UserId, t)
 }
 
 func (conn *Conn) Init(userId, connId string) {

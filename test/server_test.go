@@ -39,16 +39,17 @@ func (h Handler) OnAuth(data []byte) *server.AuthReply {
 }
 
 func (h Handler) OnReceive(srcConn *cm.Conn, data []byte) (resp []byte) {
+	fmt.Println("OnReceive")
 	return data
 }
 
 func (h Handler) OnClose(conn *cm.Conn) {
-	fmt.Println("连接已关闭")
+	fmt.Println("OnClose 连接已关闭")
 }
 
 func Test_Server(t *testing.T) {
 	srv := server.NewServer(
-		server.WithMessageHandler(&Handler{}),
+		server.WithHandler(&Handler{}),
 		server.WithAuthTimeout(time.Second*10),
 		server.WithHeartbeatTimeout(time.Minute*100),
 		server.WithCertAndKeyFile("cert.pem", "key.pem"),
