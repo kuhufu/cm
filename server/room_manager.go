@@ -6,21 +6,22 @@ import (
 
 type Manager struct {
 	mu    sync.RWMutex
-	rooms map[RoomId]*Room
+	rooms map[string]*Room
 }
 
 func NewManager() *Manager {
 	return &Manager{
-		rooms: map[RoomId]*Room{},
+		rooms: map[string]*Room{},
 	}
 }
 
-func (m *Manager) Add(id RoomId, channel *Channel) {
-	m.GetOrCreate(id).Add(channel.Id, channel)
+func (m *Manager) Add(id string) {
 	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.rooms[id] = NewRoom(id)
 }
 
-func (m *Manager) Get(id RoomId) (*Room, bool) {
+func (m *Manager) Get(id string) (*Room, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	val, ok := m.rooms[id]
@@ -28,13 +29,13 @@ func (m *Manager) Get(id RoomId) (*Room, bool) {
 	return val, ok
 }
 
-func (m *Manager) Del(id RoomId) {
+func (m *Manager) Del(id string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.rooms, id)
 }
 
-func (m *Manager) Exist(id RoomId) bool {
+func (m *Manager) Exist(id string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	_, ok := m.rooms[id]
@@ -42,7 +43,7 @@ func (m *Manager) Exist(id RoomId) bool {
 	return ok
 }
 
-func (m *Manager) GetOrCreate(id RoomId) *Room {
+func (m *Manager) GetOrCreate(id string) *Room {
 	m.mu.RLock()
 	if val, ok := m.rooms[id]; ok {
 		m.mu.RUnlock()
@@ -61,11 +62,14 @@ func (m *Manager) GetOrCreate(id RoomId) *Room {
 	return c
 }
 
-func (m *Manager) Range(f func(key RoomId, val *Room)) {
+func (m *Manager) Range(f func(key string, val *Room)) {
 	m.mu.RLock()
 	size := len(m.rooms)
+	if size == 0 {
+		return
+	}
 
-	keys := make([]RoomId, 0, size)
+	keys := make([]string, 0, size)
 	vals := make([]*Room, 0, size)
 
 	for key, val := range m.rooms {

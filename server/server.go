@@ -80,7 +80,7 @@ func (srv *Server) serve(channel *Channel) {
 
 	AuthTimer := time.AfterFunc(srv.opts.AuthTimeout, func() {
 		channel.Close()
-		logger.Println("认证超时")
+		logger.Println("auth timeout")
 	})
 
 	msg := protocol.NewMessage()
@@ -117,7 +117,7 @@ func (srv *Server) serve(channel *Channel) {
 				goto authOk
 			}
 		default:
-			err = fmt.Errorf("新连接需要认证 %v", msg.Cmd())
+			err = fmt.Errorf("new connection must authentication %v", msg.Cmd())
 			return
 		}
 	}
@@ -140,7 +140,7 @@ func (srv *Server) readLoop(channel *Channel) {
 
 	heartbeatTimer = time.AfterFunc(srv.opts.HeartbeatTimeout, func() {
 		channel.Close()
-		logger.Println("第一个心跳超时")
+		logger.Println("first heartbeat timeout")
 	})
 
 	msg := protocol.NewMessage()
@@ -165,7 +165,7 @@ func (srv *Server) readLoop(channel *Channel) {
 		case consts.CmdClose:
 			return
 		default:
-			err = fmt.Errorf("未知的cmd: %v", msg.Cmd())
+			err = fmt.Errorf("unkunown cmd: %v", msg.Cmd())
 			return
 		}
 	}
@@ -201,7 +201,7 @@ func (srv *Server) writeLoop(channel *Channel) {
 	}
 }
 
-func (srv *Server) addChannel(channel *Channel, roomId RoomId, channelId ChannelId) {
+func (srv *Server) addChannel(channel *Channel, roomId string, channelId string) {
 	if channelId == "" {
 		panic("channel_id cannot be empty")
 	}
@@ -214,6 +214,10 @@ func (srv *Server) addChannel(channel *Channel, roomId RoomId, channelId Channel
 		logger.Debugf("channel onClose")
 		srv.cm.GetOrCreate(roomId).DelIfEqual(channelId, channel)
 		srv.allChannels.Delete(channel)
+
+		if srv.cm.GetOrCreate(roomId).Size() == 0 {
+			srv.cm.Del(roomId)
+		}
 	}
 
 	oldChannel := srv.cm.GetOrCreate(roomId).AddOrReplace(channelId, channel)
@@ -222,7 +226,7 @@ func (srv *Server) addChannel(channel *Channel, roomId RoomId, channelId Channel
 	}
 }
 
-func (srv *Server) Unicast(data []byte, roomId RoomId) error {
+func (srv *Server) Unicast(data []byte, roomId string) error {
 	var room *Room
 	var ok bool
 
@@ -231,19 +235,19 @@ func (srv *Server) Unicast(data []byte, roomId RoomId) error {
 	}
 
 	data = srvPushMsgBytes(data)
-	room.Range(func(id ChannelId, channel *Channel) {
+	room.Range(func(id string, channel *Channel) {
 		channel.EnterOutBytes(data)
 	})
 
 	return nil
 }
 
-func (srv *Server) Multicast(data []byte, roomIds ...RoomId) {
+func (srv *Server) Multicast(data []byte, roomIds ...string) {
 	data = srvPushMsgBytes(data)
 
 	for _, id := range roomIds {
 		if room, ok := srv.cm.Get(id); ok {
-			room.Range(func(id ChannelId, channel *Channel) {
+			room.Range(func(id string, channel *Channel) {
 				channel.EnterOutBytes(data)
 			})
 		}
