@@ -229,20 +229,18 @@ func (srv *Server) addChannel(channel *Channel, roomId string, channelId string)
 	}
 }
 
-func (srv *Server) Unicast(data []byte, roomId string) error {
+func (srv *Server) Unicast(data []byte, roomId string) {
 	var room *Room
 	var ok bool
 
 	if room, ok = srv.cm.Get(roomId); !ok {
-		return ErrConnNotExist
+		logger.Debugf("room:%v not exist", roomId)
 	}
 
 	data = srvPushMsgBytes(data)
 	room.Range(func(id string, channel *Channel) {
 		channel.EnterOutBytes(data)
 	})
-
-	return nil
 }
 
 func (srv *Server) Multicast(data []byte, roomIds ...string) {
