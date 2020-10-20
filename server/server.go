@@ -45,11 +45,16 @@ func (srv *Server) optsCopy(opts ...Option) Options {
 		opt(&optCpy)
 	}
 
+	if optCpy.Handler == nil {
+		panic("handler cannot be empty")
+	}
+
 	return optCpy
 }
 
 func (srv *Server) Run(addr string, opts ...Option) error {
-	ln, err := GetListener(addr, srv.optsCopy(opts...))
+	opt := srv.optsCopy(opts...)
+	ln, err := getListener(addr, opt)
 	if err != nil {
 		return err
 	}

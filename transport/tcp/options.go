@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 )
 
+//TlsConfig 和 证书文件文件路径 二选一， 同时设置，将选择TlsConfig
 type Options struct {
 	CertFile  string
 	KeyFile   string

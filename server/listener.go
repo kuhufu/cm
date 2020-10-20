@@ -7,7 +7,7 @@ import (
 	"net/url"
 )
 
-func GetListener(addr string, options Options) (net.Listener, error) {
+func getListener(addr string, options Options) (net.Listener, error) {
 	parse, err := url.Parse(addr)
 	if err != nil {
 		return nil, err
