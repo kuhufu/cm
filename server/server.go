@@ -90,7 +90,7 @@ func (srv *Server) serve(channel *Channel) {
 			return
 		}
 
-		//logger.Debug(msg)
+		logger.Debugf("new message: %v", msg)
 
 		switch msg.Cmd() {
 		case consts.CmdAuth:
