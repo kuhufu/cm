@@ -154,7 +154,7 @@ func (srv *Server) readLoop(channel *Channel) {
 			return
 		}
 
-		logger.Debugf("channel_id: %v, msg: %s", channel.Id, msg)
+		logger.Debugf("channel_id: %v, msg: %s", channel.id, msg)
 
 		switch msg.Cmd() {
 		case consts.CmdPush:
@@ -234,7 +234,7 @@ func (srv *Server) addChannel(channel *Channel, roomId string, channelId string)
 	}
 }
 
-func (srv *Server) Unicast(data []byte, roomId string) {
+func (srv *Server) Unicast(data []byte, roomId string, filters ...ChannelFilter) {
 	var room *Room
 	var ok bool
 
@@ -243,28 +243,46 @@ func (srv *Server) Unicast(data []byte, roomId string) {
 	}
 
 	data = srvPushMsgBytes(data)
-	room.Range(func(id string, channel *Channel) {
+	room.Range(func(id string, channel *Channel) bool {
+		for _, filter := range filters {
+			if !filter(channel) {
+				return true
+			}
+		}
 		channel.EnterOutBytes(data)
+		return true
 	})
 }
 
-func (srv *Server) Multicast(data []byte, roomIds ...string) {
+func (srv *Server) Multicast(data []byte, roomIds []string, filters ...ChannelFilter) {
 	data = srvPushMsgBytes(data)
 
 	for _, id := range roomIds {
 		if room, ok := srv.cm.Get(id); ok {
-			room.Range(func(id string, channel *Channel) {
+			room.Range(func(id string, channel *Channel) bool {
+				for _, filter := range filters {
+					if !filter(channel) {
+						return true
+					}
+				}
 				channel.EnterOutBytes(data)
+				return true
 			})
 		}
 	}
 }
 
-func (srv *Server) Broadcast(data []byte) {
+func (srv *Server) Broadcast(data []byte, filters ...ChannelFilter) {
 	data = srvPushMsgBytes(data)
 
 	srv.allChannels.Range(func(key, value interface{}) bool {
-		key.(*Channel).EnterOutBytes(data)
+		c := key.(*Channel)
+		for _, filter := range filters {
+			if !filter(c) {
+				return true
+			}
+		}
+		c.EnterOutBytes(data)
 		return true
 	})
 }

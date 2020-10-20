@@ -79,7 +79,7 @@ func (c *Room) Get(id string) (*Channel, bool) {
 	return val, ok
 }
 
-func (c *Room) Range(f func(id string, channel *Channel)) {
+func (c *Room) Range(f func(id string, channel *Channel) bool) {
 	c.mu.RLock()
 	size := len(c.members)
 	if size == 0 {
@@ -96,6 +96,8 @@ func (c *Room) Range(f func(id string, channel *Channel)) {
 	c.mu.RUnlock()
 
 	for i := 0; i < len(keys); i++ {
-		f(keys[i], vals[i])
+		if !f(keys[i], vals[i]) {
+			return
+		}
 	}
 }

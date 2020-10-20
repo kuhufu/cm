@@ -30,9 +30,8 @@ func (h Handler) OnAuth(data []byte) *server.AuthReply {
 
 	return &server.AuthReply{
 		Ok:        true,
-		ChannelId: f.Uid + ":" + f.Os,
+		ChannelId: f.Os,
 		RoomId:    f.Uid,
-		GroupIds:  []string{"g1", "g2"},
 		Data:      []byte("hello"),
 	}
 }
@@ -50,7 +49,7 @@ func Test_Server(t *testing.T) {
 	srv := server.NewServer(
 		server.WithHandler(&Handler{}),
 		server.WithAuthTimeout(time.Second*10),
-		server.WithHeartbeatTimeout(time.Second*3),
+		server.WithHeartbeatTimeout(time.Second*300),
 		server.WithDebugLog(),
 		server.WithCertAndKeyFile("cert.pem", "key.pem"),
 	)
@@ -73,7 +72,11 @@ func Test_Server(t *testing.T) {
 		for {
 			time.Sleep(time.Second)
 			//err := srv.Unicast([]byte("hello"), "1")
-			srv.Broadcast([]byte("hello"))
+			srv.Broadcast([]byte("hello"), func(channel *server.Channel) bool {
+
+				fmt.Println(channel)
+				return channel.Id() == "web"
+			})
 		}
 	}()
 
@@ -174,7 +177,7 @@ func Test_ClientTcp(t *testing.T) {
 		}
 	}
 
-	go f("2", "android")
+	go f("2", "web")
 
 	time.Sleep(time.Hour)
 }
