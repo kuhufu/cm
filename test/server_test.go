@@ -73,8 +73,6 @@ func Test_Server(t *testing.T) {
 			time.Sleep(time.Second)
 			//err := srv.Unicast([]byte("hello"), "1")
 			srv.Broadcast([]byte("hello"), func(channel *server.Channel) bool {
-
-				fmt.Println(channel)
 				return channel.Id() == "web"
 			})
 		}
