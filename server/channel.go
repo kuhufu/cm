@@ -13,7 +13,7 @@ import (
 type Channel struct {
 	net.Conn
 	Id            string
-	string        string
+	roomId        string
 	status        int32
 	outMsgQueue   chan Interface.Message
 	outBytesQueue chan []byte //广播使用，避免消息多次encode
@@ -25,7 +25,7 @@ type Channel struct {
 }
 
 func (c *Channel) Init(roomId string, channelId string) {
-	c.string = roomId
+	c.roomId = roomId
 	c.Id = fmt.Sprintf("%v_%v", roomId, channelId)
 }
 
@@ -113,5 +113,5 @@ func (c *Channel) StatusOk() bool {
 }
 
 func (c *Channel) String() string {
-	return fmt.Sprintf("room: %v, channel_id: %v", c.string, c.Id)
+	return fmt.Sprintf("room: %v, channel_id: %v", c.roomId, c.Id)
 }

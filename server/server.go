@@ -212,9 +212,12 @@ func (srv *Server) addChannel(channel *Channel, roomId string, channelId string)
 	channel.Init(roomId, channelId)
 	channel.OnClose = func() {
 		logger.Debugf("channel onClose")
+
+		// 1.从房间中移除
 		srv.cm.GetOrCreate(roomId).DelIfEqual(channelId, channel)
 		srv.allChannels.Delete(channel)
 
+		//2.空房间移除
 		if srv.cm.GetOrCreate(roomId).Size() == 0 {
 			srv.cm.Del(roomId)
 		}
