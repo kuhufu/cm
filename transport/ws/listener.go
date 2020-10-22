@@ -30,7 +30,7 @@ type Listener struct {
 	path      string
 	upgrader  websocket.Upgrader
 	exitC     chan struct{}
-	connC     chan *Conn
+	connC     chan net.Conn
 	closeOnce sync.Once
 	addr      net.Addr
 }
@@ -56,7 +56,7 @@ func Listen(network, addr string, opts Options) (*Listener, error) {
 		opts:   opts,
 		host:   addr,
 		path:   path,
-		connC:  make(chan *Conn, 4),
+		connC:  make(chan net.Conn, 4),
 		addr: &Addr{
 			network: network,
 			addr:    addr,
@@ -70,8 +70,8 @@ func (w *Listener) Accept() (net.Conn, error) {
 	select {
 	case <-w.exitC:
 		return nil, errors.New("listener closed")
-	case res := <-w.connC:
-		return &Conn{conn: res.conn}, nil
+	case conn := <-w.connC:
+		return conn, nil
 	}
 }
 
@@ -86,7 +86,11 @@ func (w *Listener) runUpgrader() {
 			writer.Write([]byte(err.Error()))
 			return
 		}
-		w.connC <- &Conn{conn: conn}
+		w.connC <- &Conn{
+			Conn:         conn,
+			ReadTimeout:  w.opts.ReadTimeout,
+			WriteTimeout: w.opts.WriteTimeout,
+		}
 	})
 
 	log.Printf("http://%v%v", w.host, w.path)

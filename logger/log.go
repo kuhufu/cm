@@ -3,6 +3,9 @@ package log
 var logger = &Logger{Level: InfoLevel}
 
 func Init(level Level) {
+	if level < PanicLevel {
+		return
+	}
 	logger.setLevel(level)
 }
 

@@ -7,9 +7,9 @@ import (
 )
 
 type Options struct {
-	//认证超时时间
+	//认证超时时间，默认10s
 	AuthTimeout time.Duration
-	//心跳超时时间
+	//心跳超时时间，默认90s
 	HeartbeatTimeout time.Duration
 	//证书文件路径
 	CertFile string
@@ -19,6 +19,10 @@ type Options struct {
 	TlsConfig *tls.Config
 	//handler
 	Handler Handler
+	//读超时时间，0表示不超时
+	ReadTimeout time.Duration
+	//写超时时间，0表示不超时
+	WriteTimeout time.Duration
 }
 
 func defaultOptions() Options {
@@ -29,6 +33,18 @@ func defaultOptions() Options {
 }
 
 type Option func(o *Options)
+
+func WithReadTimeout(duration time.Duration) Option {
+	return func(o *Options) {
+		o.ReadTimeout = duration
+	}
+}
+
+func WithWriteTimeout(duration time.Duration) Option {
+	return func(o *Options) {
+		o.WriteTimeout = duration
+	}
+}
 
 func WithAuthTimeout(duration time.Duration) Option {
 	return func(o *Options) {

@@ -5,20 +5,29 @@ import (
 	"errors"
 	"github.com/gorilla/websocket"
 	"io"
-	"net"
 	"sync"
 	"time"
 )
 
 type Conn struct {
-	conn   *websocket.Conn
+	*websocket.Conn
 	reader io.Reader
+
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
 
 	rL sync.Mutex
 	wL sync.Mutex
 }
 
 func (c *Conn) Read(b []byte) (n int, err error) {
+	if c.ReadTimeout != 0 {
+		err = c.SetReadDeadline(time.Now().Add(c.ReadTimeout))
+		if err != nil {
+			return 0, err
+		}
+	}
+
 	c.rL.Lock()
 	defer c.rL.Unlock()
 
@@ -35,7 +44,7 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 		}
 
 		if left != 0 {
-			typ, data, err := c.conn.ReadMessage()
+			typ, data, err := c.ReadMessage()
 			if err != nil {
 				return len(b) - left, err
 			}
@@ -53,43 +62,30 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 }
 
 func (c *Conn) Write(b []byte) (n int, err error) {
+	if c.WriteTimeout != 0 {
+		err = c.SetWriteDeadline(time.Now().Add(c.ReadTimeout))
+		if err != nil {
+			return 0, err
+		}
+	}
+
 	c.wL.Lock()
 	defer c.wL.Unlock()
 	//writeMessage不是线程安全的
-	err = c.conn.WriteMessage(websocket.BinaryMessage, b)
+	err = c.WriteMessage(websocket.BinaryMessage, b)
 	if err != nil {
 		return 0, err
 	}
 	return len(b), nil
 }
 
-func (c *Conn) Close() error {
-	return c.conn.Close()
-}
-
-func (c *Conn) LocalAddr() net.Addr {
-	return c.conn.LocalAddr()
-}
-
-func (c *Conn) RemoteAddr() net.Addr {
-	return c.conn.RemoteAddr()
-}
-
 func (c *Conn) SetDeadline(t time.Time) error {
-	err := c.conn.SetReadDeadline(t)
+	err := c.SetReadDeadline(t)
 	if err != nil {
 		return err
 	}
-	err = c.conn.SetWriteDeadline(t)
+	err = c.SetWriteDeadline(t)
 	return err
-}
-
-func (c *Conn) SetReadDeadline(t time.Time) error {
-	return c.conn.SetReadDeadline(t)
-}
-
-func (c *Conn) SetWriteDeadline(t time.Time) error {
-	return c.conn.SetWriteDeadline(t)
 }
 
 //protocol的标记接口，标记是否需要一次性写入整个消息

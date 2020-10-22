@@ -1,16 +1,11 @@
 package test
 
 import (
-	bytes2 "bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/kuhufu/cm/protocol"
-	"github.com/kuhufu/cm/protocol/consts"
 	"github.com/kuhufu/cm/server"
-	"io/ioutil"
-	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"net/url"
 	"testing"
 	"time"
@@ -50,8 +45,9 @@ func Test_Server(t *testing.T) {
 		server.WithHandler(&Handler{}),
 		server.WithAuthTimeout(time.Second*10),
 		server.WithHeartbeatTimeout(time.Second*300),
+		server.WithReadTimeout(time.Second),
 		server.WithDebugLog(),
-		server.WithCertAndKeyFile("cert.pem", "key.pem"),
+		server.WithCertAndKeyFile("cert/cert.pem", "cert/key.pem"),
 	)
 
 	go func() {
@@ -72,112 +68,20 @@ func Test_Server(t *testing.T) {
 		for {
 			time.Sleep(time.Second)
 			//err := srv.Unicast([]byte("hello"), "1")
-			srv.Broadcast([]byte("hello"), func(channel *server.Channel) bool {
+			bytes := make([]byte, 40960)
+			srv.Broadcast(bytes, func(channel *server.Channel) bool {
 				return channel.Id() == "web"
 			})
 		}
 	}()
 
+	go func() {
+		if err := http.ListenAndServe(":8888", nil); err != nil {
+			panic(err)
+		}
+	}()
+
 	select {}
-}
-
-func Test_ClientWs(t *testing.T) {
-	//development 123.56.103.77:7090
-	//production kfws.qiyejiaoyou.com:7090
-	f := func(uid string, os string) {
-		dialer := websocket.Dialer{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
-		conn, response, err := dialer.Dial("wss://localhost:8081/ws", nil)
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		fmt.Println(conn.RemoteAddr())
-
-		bytes, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			t.Error(err)
-		}
-
-		fmt.Println(string(bytes))
-
-		time.Sleep(time.Millisecond)
-
-		msg := protocol.NewDefaultMessage()
-		msg.SetCmd(consts.CmdAuth)
-		msg.SetBody([]byte(fmt.Sprintf(`{"uid":"%v","os":"%v"}`, uid, os)))
-
-		fmt.Println(msg)
-
-		err = conn.WriteMessage(websocket.BinaryMessage, msg.Encode())
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		for {
-			//读
-			_, data, err := conn.ReadMessage()
-			if err != nil {
-				log.Println()
-				t.Error(err)
-				return
-			}
-
-			_, err = msg.ReadFrom(bytes2.NewReader(data))
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			log.Println(os+":receive:", msg)
-		}
-	}
-
-	go f("1", "web")
-
-	time.Sleep(time.Hour)
-}
-
-func Test_ClientTcp(t *testing.T) {
-	//development 123.56.103.77:7090
-	//production kfws.qiyejiaoyou.com:7090
-	f := func(uid string, os string) {
-		conn, err := tls.Dial("tcp", "localhost:8080", &tls.Config{InsecureSkipVerify: true})
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		fmt.Println(conn.RemoteAddr())
-
-		time.Sleep(time.Millisecond)
-
-		msg := protocol.NewDefaultMessage()
-		msg.SetCmd(consts.CmdAuth)
-		msg.SetBody([]byte(fmt.Sprintf(`{"uid":"%v","os":"%v"}`, uid, os)))
-
-		fmt.Println(msg)
-
-		_, err = conn.Write(msg.Encode())
-		if err != nil {
-			t.Error(err)
-			return
-		}
-
-		for {
-			//读
-			_, err := msg.ReadFrom(conn)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			log.Println(os+":receive:", msg)
-		}
-	}
-
-	go f("2", "web")
-
-	time.Sleep(time.Hour)
 }
 
 func TestScheme(t *testing.T) {

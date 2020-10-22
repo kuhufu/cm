@@ -95,7 +95,7 @@ func (srv *Server) serve(channel *Channel) {
 			return
 		}
 
-		logger.Debugf("new message: %v", msg)
+		logger.Debugf("receive message: %v", msg)
 
 		switch msg.Cmd() {
 		case consts.CmdAuth:
@@ -184,6 +184,7 @@ func (srv *Server) writeLoop(channel *Channel) {
 		} else {
 			logger.Printf("%v, writer exit", channel)
 		}
+		channel.Close()
 	}()
 
 	for {

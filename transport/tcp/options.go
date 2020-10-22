@@ -2,13 +2,16 @@ package tcp
 
 import (
 	"crypto/tls"
+	"time"
 )
 
 //TlsConfig 和 证书文件文件路径 二选一， 同时设置，将选择TlsConfig
 type Options struct {
-	CertFile  string
-	KeyFile   string
-	TlsConfig *tls.Config
+	CertFile     string
+	KeyFile      string
+	TlsConfig    *tls.Config
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
 }
 
 func (opts *Options) Init() error {
