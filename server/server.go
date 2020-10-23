@@ -27,13 +27,17 @@ func NewServer(opts ...Option) *Server {
 		opt(&s.opts)
 	}
 
-	if s.opts.Handler == nil {
-		panic("message opts.Handler cannot be nil")
-	}
-
 	logger.Printf("auth_timeout: %v, heartbeat_timeout: %v", s.opts.AuthTimeout, s.opts.HeartbeatTimeout)
 
 	return s
+}
+
+func (srv *Server) AddHandler(handler Handler) {
+	if handler == nil {
+		panic("message opts.Handler cannot be nil")
+	}
+
+	srv.opts.Handler = handler
 }
 
 func (srv *Server) optsCopy(opts ...Option) Options {
@@ -235,6 +239,7 @@ func (srv *Server) addChannel(channel *Channel, roomId string, channelId string)
 	}
 }
 
+//这里的单播，多播，广播的基本单位是room
 func (srv *Server) Unicast(data []byte, roomId string, filters ...ChannelFilter) {
 	var room *Room
 	var ok bool
@@ -244,15 +249,7 @@ func (srv *Server) Unicast(data []byte, roomId string, filters ...ChannelFilter)
 	}
 
 	data = srvPushMsgBytes(data)
-	room.Range(func(id string, channel *Channel) bool {
-		for _, filter := range filters {
-			if !filter(channel) {
-				return true
-			}
-		}
-		channel.EnterOutBytes(data)
-		return true
-	})
+	room.Broadcast(data, filters...)
 }
 
 func (srv *Server) Multicast(data []byte, roomIds []string, filters ...ChannelFilter) {
@@ -260,15 +257,7 @@ func (srv *Server) Multicast(data []byte, roomIds []string, filters ...ChannelFi
 
 	for _, id := range roomIds {
 		if room, ok := srv.cm.Get(id); ok {
-			room.Range(func(id string, channel *Channel) bool {
-				for _, filter := range filters {
-					if !filter(channel) {
-						return true
-					}
-				}
-				channel.EnterOutBytes(data)
-				return true
-			})
+			room.Broadcast(data, filters...)
 		}
 	}
 }
@@ -286,6 +275,10 @@ func (srv *Server) Broadcast(data []byte, filters ...ChannelFilter) {
 		c.EnterOutBytes(data)
 		return true
 	})
+}
+
+func (srv *Server) GetRoom(id string) (*Room, bool) {
+	return srv.cm.Get(id)
 }
 
 func srvPushMsgBytes(data []byte) []byte {

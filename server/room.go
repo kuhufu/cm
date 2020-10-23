@@ -101,3 +101,39 @@ func (c *Room) Range(f func(id string, channel *Channel) bool) {
 		}
 	}
 }
+
+func (c *Room) Unicast(data []byte, id string, filters ...ChannelFilter) {
+	if channel, ok := c.Get(id); ok {
+		for _, filter := range filters {
+			if !filter(channel) {
+				return
+			}
+		}
+		channel.EnterOutBytes(data)
+	}
+}
+
+func (c *Room) Multicast(data []byte, ids []string, filters ...ChannelFilter) {
+	for _, id := range ids {
+		if channel, ok := c.Get(id); ok {
+			for _, filter := range filters {
+				if !filter(channel) {
+					return
+				}
+			}
+			channel.EnterOutBytes(data)
+		}
+	}
+}
+
+func (c *Room) Broadcast(data []byte, filters ...ChannelFilter) {
+	c.Range(func(id string, channel *Channel) bool {
+		for _, filter := range filters {
+			if !filter(channel) {
+				return true
+			}
+		}
+		channel.EnterOutBytes(data)
+		return true
+	})
+}
