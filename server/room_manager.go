@@ -62,7 +62,7 @@ func (m *Manager) GetOrCreate(id string) *Room {
 	return c
 }
 
-func (m *Manager) Range(f func(key string, val *Room)) {
+func (m *Manager) Range(f func(key string, val *Room) bool) {
 	m.mu.RLock()
 	size := len(m.rooms)
 	if size == 0 {
@@ -79,6 +79,8 @@ func (m *Manager) Range(f func(key string, val *Room)) {
 	m.mu.RUnlock()
 
 	for i := 0; i < len(keys); i++ {
-		f(keys[i], vals[i])
+		if !f(keys[i], vals[i]) {
+			return
+		}
 	}
 }

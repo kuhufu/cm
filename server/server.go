@@ -277,6 +277,10 @@ func (srv *Server) Broadcast(data []byte, filters ...ChannelFilter) {
 	})
 }
 
+func (srv *Server) Range(f func(id string, room *Room) bool) {
+	srv.cm.Range(f)
+}
+
 func (srv *Server) GetRoom(id string) (*Room, bool) {
 	return srv.cm.Get(id)
 }
