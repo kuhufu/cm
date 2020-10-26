@@ -24,11 +24,11 @@ func (c *Room) Add(id string, channel *Channel) {
 	c.members[id] = channel
 }
 
-func (c *Room) AddOrReplace(id string, channel *Channel) *Channel {
+func (c *Room) AddOrReplace(id string, channel *Channel) (old *Channel) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	old, _ := c.members[id]
+	old, _ = c.members[id]
 	c.members[id] = channel
 	return old
 }
