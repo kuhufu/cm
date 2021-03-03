@@ -1,10 +1,12 @@
 package binary
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/kuhufu/cm/protocol/Interface"
+	"github.com/kuhufu/cm/transport"
 	"io"
 )
 
@@ -151,6 +153,15 @@ func (m *Message) Body() []byte {
 func (m *Message) ReadFrom(r io.Reader) (int64, error) {
 	header := m.header[:]
 
+	if c, ok := r.(transport.BlockConn); ok {
+		data, err := c.ReadBlock()
+		if err != nil {
+			return 0, err
+		}
+
+		r = bytes.NewReader(data)
+	}
+
 	//读取头部
 	n, err := io.ReadFull(r, header)
 	if err != nil {
@@ -180,18 +191,9 @@ func (m *Message) ReadFrom(r io.Reader) (int64, error) {
 }
 
 func (m *Message) WriteTo(w io.Writer) (int64, error) {
-	if writerNeedFullWrite(w) {
-		data := m.Encode()
-		n, err := w.Write(data)
-		return int64(n), err
-	}
-
-	n, err := w.Write(m.header[:])
-	if err != nil {
-		return int64(n), err
-	}
-	nb, err := w.Write(m.body)
-	return int64(n + nb), err
+	data := m.Encode()
+	n, err := w.Write(data)
+	return int64(n), err
 }
 
 func (m *Message) validHeader() error {
@@ -240,11 +242,4 @@ func Read(r io.Reader) (*Message, error) {
 	}
 
 	return message, nil
-}
-
-func writerNeedFullWrite(w io.Writer) bool {
-	if v, ok := w.(Interface.NeedFullWrite); ok && v.MessageNeedFullWrite() {
-		return true
-	}
-	return false
 }

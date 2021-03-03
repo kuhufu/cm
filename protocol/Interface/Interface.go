@@ -34,8 +34,3 @@ var cmdMap = map[Cmd]string{
 func (c Cmd) String() string {
 	return cmdMap[c]
 }
-
-//标记接口，需要一次性写入完整消息，否则头和body将分开写
-type NeedFullWrite interface {
-	MessageNeedFullWrite() bool
-}

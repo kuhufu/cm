@@ -62,14 +62,6 @@ func (c *Channel) Exit() <-chan struct{} {
 	return c.exitC
 }
 
-//消息是否需要完整写入
-func (c *Channel) MessageNeedFullWrite() bool {
-	if v, ok := c.Conn.(Interface.NeedFullWrite); ok {
-		return v.MessageNeedFullWrite()
-	}
-	return false
-}
-
 func (c *Channel) EnterOutMsg(msg Interface.Message) {
 	select {
 	case <-c.exitC:
