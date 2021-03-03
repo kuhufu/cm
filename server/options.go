@@ -70,6 +70,12 @@ func WithDebugLog() Option {
 	}
 }
 
+func WithLogLevel(level logger.Level) Option {
+	return func(o *Options) {
+		logger.Init(level)
+	}
+}
+
 func WithCertAndKeyFile(cert, key string) Option {
 	return func(o *Options) {
 		o.CertFile = cert

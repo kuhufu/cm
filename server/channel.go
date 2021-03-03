@@ -21,6 +21,7 @@ type Channel struct {
 	closeOnce     sync.Once //保证连接只关闭一次
 	CreateTime    time.Time //创建时间
 	Metadata      sync.Map  //拓展信息可自由添加
+	Network       string    //用什么协议连接的
 	OnClose       func()    //close事件
 }
 
@@ -29,13 +30,14 @@ func (c *Channel) Init(roomId string, channelId string) {
 	c.id = channelId
 }
 
-func NewChannel(conn net.Conn) *Channel {
+func NewChannel(conn net.Conn, network string) *Channel {
 	c := &Channel{
 		Conn:          conn,
 		exitC:         make(chan struct{}),
 		outMsgQueue:   make(chan Interface.Message, 4),
 		outBytesQueue: make(chan []byte, 4),
 		CreateTime:    time.Now(),
+		Network:       network,
 	}
 
 	return c

@@ -57,6 +57,7 @@ func Listen(network, addr string, opts Options) (*Listener, error) {
 		host:   addr,
 		path:   path,
 		connC:  make(chan net.Conn, 4),
+		exitC:  make(chan struct{}),
 		addr: &Addr{
 			network: network,
 			addr:    addr,

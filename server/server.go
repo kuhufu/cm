@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/protocol/consts"
@@ -15,12 +16,14 @@ type Server struct {
 	opts        Options
 	mu          sync.Mutex
 	allChannels sync.Map //方便广播
+	exitC       chan struct{}
 }
 
 func NewServer(opts ...Option) *Server {
 	s := &Server{
-		cm:   NewManager(),
-		opts: defaultOptions(),
+		cm:    NewManager(),
+		opts:  defaultOptions(),
+		exitC: make(chan struct{}),
 	}
 
 	for _, opt := range opts {
@@ -30,6 +33,11 @@ func NewServer(opts ...Option) *Server {
 	logger.Printf("auth_timeout: %v, heartbeat_timeout: %v", s.opts.AuthTimeout, s.opts.HeartbeatTimeout)
 
 	return s
+}
+
+func (srv *Server) Close() error {
+	close(srv.exitC)
+	return nil
 }
 
 func (srv *Server) AddHandler(handler Handler) {
@@ -63,16 +71,36 @@ func (srv *Server) Run(addr string, opts ...Option) error {
 		return err
 	}
 
+	defer func() {
+		ln.Close()
+		logger.Infof("listener %v://%v exit", ln.Addr().Network(), ln.Addr().String())
+	}()
+
 	logger.Printf("listen on: %v", addr)
 
+	network := ln.Addr().Network()
 	for {
+		if srv.exiting() {
+			return errors.New("listener exit")
+		}
+
 		conn, err := ln.Accept()
 		if err != nil {
 			return err
 		}
 		logger.Printf("new connect: %v", conn.RemoteAddr())
-		go srv.serve(NewChannel(conn))
+		go srv.serve(NewChannel(conn, network))
 	}
+}
+
+func (srv *Server) exiting() bool {
+	select {
+	case <-srv.exitC:
+		return true
+	default:
+	}
+
+	return false
 }
 
 func (srv *Server) serve(channel *Channel) {
@@ -94,6 +122,10 @@ func (srv *Server) serve(channel *Channel) {
 
 	msg := protocol.NewMessage()
 	for {
+		if srv.exiting() {
+			return
+		}
+
 		if _, err := msg.ReadFrom(channel); err != nil {
 			logger.Println(err)
 			return
@@ -154,6 +186,10 @@ func (srv *Server) readLoop(channel *Channel) {
 
 	msg := protocol.NewMessage()
 	for {
+		if srv.exiting() {
+			return
+		}
+
 		if _, err = msg.ReadFrom(channel); err != nil {
 			return
 		}
@@ -192,7 +228,13 @@ func (srv *Server) writeLoop(channel *Channel) {
 	}()
 
 	for {
+		if srv.exiting() {
+			return
+		}
+
 		select {
+		case <-srv.exitC:
+			return
 		case <-channel.Exit():
 			return
 		case msg := <-channel.WaitOutMsg():

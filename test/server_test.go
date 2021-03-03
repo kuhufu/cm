@@ -45,7 +45,6 @@ func Test_Server(t *testing.T) {
 		server.WithHandler(&Handler{}),
 		server.WithAuthTimeout(time.Second*10),
 		server.WithHeartbeatTimeout(time.Second*300),
-		server.WithReadTimeout(time.Second),
 		server.WithDebugLog(),
 		server.WithCertAndKeyFile("cert/cert.pem", "cert/key.pem"),
 	)

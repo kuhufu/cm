@@ -1,12 +1,14 @@
 package test
 
 import (
+	bytes2 "bytes"
 	"crypto/tls"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/protocol/consts"
 	"io/ioutil"
+	"log"
 	"testing"
 	"time"
 )
@@ -45,22 +47,22 @@ func Test_ClientWs(t *testing.T) {
 			return
 		}
 
-		//for {
-		//	//读
-		//	_, data, err := conn.ReadMessage()
-		//	if err != nil {
-		//		log.Println()
-		//		t.Error(err)
-		//		return
-		//	}
-		//
-		//	_, err = msg.ReadFrom(bytes2.NewReader(data))
-		//	if err != nil {
-		//		log.Println(err)
-		//		return
-		//	}
-		//	log.Println(os+":receive:", msg)
-		//}
+		for {
+			//读
+			_, data, err := conn.ReadMessage()
+			if err != nil {
+				log.Println()
+				t.Error(err)
+				return
+			}
+
+			_, err = msg.ReadFrom(bytes2.NewReader(data))
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			log.Println(os+":receive:", msg)
+		}
 	}
 
 	go f("1", "web")
