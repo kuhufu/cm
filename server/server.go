@@ -91,7 +91,15 @@ func (srv *Server) Run(addr string, opts ...Option) error {
 
 		logger.Printf("new connect: %v->%v", conn.RemoteAddr(), conn.LocalAddr())
 
-		go srv.serve(NewChannel(conn, network))
+		go func() {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Error(err)
+				}
+
+			}()
+			srv.serve(NewChannel(conn, network))
+		}()
 	}
 }
 
@@ -192,7 +200,7 @@ func (srv *Server) readLoop(channel *Channel) {
 			return
 		}
 
-		if _, err = msg.ReadFrom(channel); err != nil {
+		if _, err = msg.ReadFrom(channel.Conn); err != nil {
 			return
 		}
 

@@ -1,6 +1,14 @@
 package binary
 
-import "sync"
+import (
+	"github.com/kuhufu/cm/protocol/consts"
+	"github.com/kuhufu/cm/protocol/global"
+	"sync"
+)
+
+func init() {
+	global.Protocol = consts.BINARY
+}
 
 var pool = sync.Pool{
 	New: func() interface{} {

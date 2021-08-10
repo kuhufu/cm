@@ -2,7 +2,7 @@ package ws
 
 import (
 	"errors"
-	"log"
+	log "github.com/kuhufu/cm/logger"
 	"net"
 	"net/http"
 	"strings"
@@ -62,6 +62,11 @@ func Listen(network, addr string, opts Options) (*Listener, error) {
 			network: network,
 			addr:    addr,
 		},
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true
+			},
+		},
 	}
 	go ln.runUpgrader()
 	return ln, nil
@@ -83,7 +88,7 @@ func (w *Listener) runUpgrader() {
 		log.Println("收到ws升级请求")
 		conn, err := w.upgrader.Upgrade(writer, reader, nil)
 		if err != nil {
-			log.Println("ws升级失败")
+			log.Error("ws升级失败:", err)
 			writer.Write([]byte(err.Error()))
 			return
 		}

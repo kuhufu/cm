@@ -73,11 +73,6 @@ func (m *MessageV1) ReadFrom(r io.Reader) (int64, error) {
 }
 
 func (m *MessageV1) valid() error {
-
-	if m.Message.MagicNumber != DefaultMagicNumber {
-		return ErrWrongMagicNumber
-	}
-
 	return nil
 }
 
@@ -92,12 +87,7 @@ func (m *MessageV1) WriteTo(w io.Writer) (int64, error) {
 		return 0, err
 	}
 
-	switch w := w.(type) {
-	case transport.BlockConn:
-		err = w.WriteString(marshal)
-	default:
-		n, err = w.Write(marshal)
-	}
+	n, err = w.Write(marshal)
 
 	return int64(n), err
 }

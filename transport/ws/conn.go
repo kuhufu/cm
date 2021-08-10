@@ -91,24 +91,6 @@ func (c *Conn) Write(b []byte) (n int, err error) {
 	return len(b), nil
 }
 
-func (c *Conn) WriteString(b []byte) (err error) {
-	if c.WriteTimeout != 0 {
-		err = c.SetWriteDeadline(time.Now().Add(c.ReadTimeout))
-		if err != nil {
-			return err
-		}
-	}
-
-	c.wL.Lock()
-	defer c.wL.Unlock()
-	//writeMessage不是线程安全的
-	err = c.WriteMessage(websocket.TextMessage, b)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (c *Conn) SetDeadline(t time.Time) error {
 	err := c.SetReadDeadline(t)
 	if err != nil {
