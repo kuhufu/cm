@@ -128,7 +128,7 @@ func (srv *Server) serve(channel *Channel) {
 			return
 		}
 
-		if _, err := msg.ReadFrom(channel); err != nil {
+		if _, err := msg.ReadFrom(channel.Conn); err != nil {
 			logger.Println(err)
 			return
 		}

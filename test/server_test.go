@@ -43,7 +43,7 @@ func (h Handler) OnClose(conn *server.Channel) {
 func Test_Server(t *testing.T) {
 	srv := server.NewServer(
 		server.WithHandler(&Handler{}),
-		server.WithAuthTimeout(time.Second*10),
+		server.WithAuthTimeout(time.Second*1000),
 		server.WithHeartbeatTimeout(time.Second*300),
 		server.WithDebugLog(),
 		server.WithCertAndKeyFile("cert/cert.pem", "cert/key.pem"),

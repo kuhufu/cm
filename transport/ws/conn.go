@@ -65,12 +65,9 @@ func (c *Conn) ReadBlock() ([]byte, error) {
 	c.rL.Lock()
 	defer c.rL.Unlock()
 
-	typ, data, err := c.ReadMessage()
+	_, data, err := c.ReadMessage()
 	if err != nil {
 		return nil, err
-	}
-	if typ != websocket.BinaryMessage {
-		return nil, errors.New("ws不是二进制消息")
 	}
 
 	return data, nil
@@ -92,6 +89,24 @@ func (c *Conn) Write(b []byte) (n int, err error) {
 		return 0, err
 	}
 	return len(b), nil
+}
+
+func (c *Conn) WriteString(b []byte) (err error) {
+	if c.WriteTimeout != 0 {
+		err = c.SetWriteDeadline(time.Now().Add(c.ReadTimeout))
+		if err != nil {
+			return err
+		}
+	}
+
+	c.wL.Lock()
+	defer c.wL.Unlock()
+	//writeMessage不是线程安全的
+	err = c.WriteMessage(websocket.TextMessage, b)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Conn) SetDeadline(t time.Time) error {

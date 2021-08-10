@@ -2,7 +2,7 @@ package protocol
 
 import (
 	"github.com/kuhufu/cm/protocol/Interface"
-	p "github.com/kuhufu/cm/protocol/binary"
+	p "github.com/kuhufu/cm/protocol/json"
 )
 
 func NewMessage() Interface.Message {

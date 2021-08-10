@@ -41,7 +41,7 @@ func Test_ClientWs(t *testing.T) {
 
 		fmt.Println(msg)
 
-		err = conn.WriteMessage(websocket.BinaryMessage, msg.Encode())
+		err = conn.WriteMessage(websocket.TextMessage, msg.Encode())
 		if err != nil {
 			t.Error(err)
 			return
