@@ -3,7 +3,6 @@ package json
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/kuhufu/cm/protocol/Interface"
 	"github.com/kuhufu/cm/transport"
 	"io"
@@ -60,8 +59,6 @@ func (m *MessageV1) ReadFrom(r io.Reader) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-
-	fmt.Println(string(data))
 
 	err = json.Unmarshal(data, &m.Message)
 

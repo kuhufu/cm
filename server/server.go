@@ -117,7 +117,7 @@ func (srv *Server) serve(channel *Channel) {
 	var err error
 	defer func() {
 		if err != nil {
-			logger.Println(err)
+			logger.Error(err)
 		}
 		channel.Close()
 		srv.opts.Handler.OnClose(channel)
@@ -137,7 +137,7 @@ func (srv *Server) serve(channel *Channel) {
 		}
 
 		if _, err := msg.ReadFrom(channel.Conn); err != nil {
-			logger.Println(err)
+			logger.Error(err)
 			return
 		}
 
