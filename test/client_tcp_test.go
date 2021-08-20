@@ -1,20 +1,54 @@
 package test
 
 import (
+	"bytes"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/protocol/consts"
+	"io/ioutil"
 	"log"
 	"testing"
 	"time"
 )
 
 func Test_ClientTcp(t *testing.T) {
-	//development 123.56.103.77:7090
-	//production kfws.qiyejiaoyou.com:7090
+	pemData, err := ioutil.ReadFile("cert/cert.pem")
+	if err != nil {
+		panic(err)
+	}
+	block, _ := pem.Decode(pemData)
+	certificate, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	ErrBadCertificate := errors.New("bad certificate")
+
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			t.Log("VerifyPeerCertificate")
+			ok := bytes.Equal(certificate.Raw, rawCerts[0])
+			if !ok {
+				return ErrBadCertificate
+			}
+
+			return nil
+		},
+	}
+
+	//conf := &tls.Config{
+	//	InsecureSkipVerify: true,
+	//}
+
 	f := func(uid string, os string) {
-		conn, err := tls.Dial("tcp", "localhost:8080", &tls.Config{InsecureSkipVerify: true})
+		conn, err := tls.Dial("tcp", "localhost:8080", conf)
 		if err != nil {
 			t.Error(err)
 			return
@@ -30,7 +64,7 @@ func Test_ClientTcp(t *testing.T) {
 
 		fmt.Println(msg)
 
-		_, err = conn.Write(msg.Encode())
+		_, err = msg.WriteTo(conn)
 		if err != nil {
 			t.Error(err)
 			return

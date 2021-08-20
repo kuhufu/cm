@@ -1,6 +1,7 @@
 package json
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"github.com/kuhufu/cm/protocol/Interface"
@@ -15,7 +16,7 @@ const (
 
 const (
 	DefaultMagicNumber = 0x08
-	DefaultHeaderLen   = 20
+	MsgLen             = 4
 	MaxBodyLen         = 2 * MB
 )
 
@@ -48,12 +49,28 @@ func (m *MessageV1) String() string {
 func (m *MessageV1) ReadFrom(r io.Reader) (int64, error) {
 	var data []byte
 	var err error
+	var n int
 
 	switch r := r.(type) {
 	case transport.BlockConn:
 		data, err = r.ReadBlock()
 	default:
-		data, err = io.ReadAll(r)
+		msgLenBytes := make([]byte, MsgLen)
+		n, err = r.Read(msgLenBytes)
+		if n != MsgLen {
+			return int64(n), ErrWrongBodyLen
+		}
+
+		if n > MaxBodyLen {
+			return 0, ErrBodyLenOverLimit
+		}
+
+		bodyLen := binary.LittleEndian.Uint32(msgLenBytes)
+		data = make([]byte, bodyLen)
+		n, err = r.Read(data)
+		if n != int(bodyLen) {
+			return 0, ErrWrongBodyLen
+		}
 	}
 
 	if err != nil {
@@ -84,7 +101,17 @@ func (m *MessageV1) WriteTo(w io.Writer) (int64, error) {
 		return 0, err
 	}
 
-	n, err = w.Write(marshal)
+	switch r := w.(type) {
+	case transport.BlockConn:
+		n, err = w.Write(marshal)
+	default:
+		msgLen := len(marshal)
+		lenAndMsgBytes := make([]byte, MsgLen+msgLen)
+		binary.LittleEndian.PutUint32(lenAndMsgBytes, uint32(msgLen))
+		copy(lenAndMsgBytes[MsgLen:], marshal)
+
+		n, err = r.Write(lenAndMsgBytes)
+	}
 
 	return int64(n), err
 }

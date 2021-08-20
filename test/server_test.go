@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/kuhufu/cm/server"
-	"net/http"
 	_ "net/http/pprof"
 	"testing"
 	"time"
@@ -45,11 +44,11 @@ func Test_Server(t *testing.T) {
 		server.WithAuthTimeout(time.Second*1000),
 		server.WithHeartbeatTimeout(time.Second*300),
 		server.WithDebugLog(),
-		//server.WithCertAndKeyFile("cert/cert.pem", "cert/key.pem"),
+		server.WithCertAndKeyFile("cert/cert.pem", "cert/key.pem"),
 	)
 
 	go func() {
-		err := srv.Run("ws://0.0.0.0:8081/ws")
+		err := srv.Run("wss://0.0.0.0:8081/ws")
 		if err != nil {
 			t.Error(err)
 		}
@@ -69,12 +68,6 @@ func Test_Server(t *testing.T) {
 			srv.Broadcast(bytes, func(channel *server.Channel) bool {
 				return channel.Id() == "web"
 			})
-		}
-	}()
-
-	go func() {
-		if err := http.ListenAndServe(":8888", nil); err != nil {
-			panic(err)
 		}
 	}()
 

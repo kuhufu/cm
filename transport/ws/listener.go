@@ -99,13 +99,13 @@ func (w *Listener) runUpgrader() {
 		}
 	})
 
-	log.Printf("http://%v%v", w.host, w.path)
-
 	var err error
 	switch w.scheme {
 	case "ws":
+		log.Printf("http://%v%v", w.host, w.path)
 		err = http.ListenAndServe(w.host, nil)
 	case "wss":
+		log.Printf("https://%v%v", w.host, w.path)
 		err = http.ListenAndServeTLS(w.host, opts.CertFile, opts.KeyFile, nil)
 	}
 
