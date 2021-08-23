@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/protocol/Interface"
 	"net"
 	"sync"
@@ -12,6 +11,7 @@ import (
 
 type Channel struct {
 	net.Conn
+	srv           *Server
 	id            string
 	roomId        string
 	status        int32
@@ -30,7 +30,7 @@ func (c *Channel) Init(roomId string, channelId string) {
 	c.id = channelId
 }
 
-func NewChannel(conn net.Conn, network string) *Channel {
+func NewChannel(conn net.Conn, network string, srv *Server) *Channel {
 	c := &Channel{
 		Conn:          conn,
 		exitC:         make(chan struct{}),
@@ -38,6 +38,7 @@ func NewChannel(conn net.Conn, network string) *Channel {
 		outBytesQueue: make(chan []byte, 4),
 		CreateTime:    time.Now(),
 		Network:       network,
+		srv:           srv,
 	}
 
 	return c
@@ -91,7 +92,7 @@ func (c *Channel) Empty() {
 	for {
 		select {
 		case msg := <-c.outMsgQueue:
-			protocol.FreePoolMsg(msg)
+			c.srv.GetMsgFactory().FreePoolMsg(msg)
 		case <-c.outBytesQueue:
 
 		default:

@@ -16,6 +16,9 @@ import (
 func Test_ClientWs(t *testing.T) {
 	//development 123.56.103.77:7090
 	//production kfws.qiyejiaoyou.com:7090
+
+	factory := protocol.GetFactory(protocol.JSON)
+
 	f := func(uid string, os string) {
 		dialer := websocket.Dialer{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 		conn, response, err := dialer.Dial("wss://localhost:8081/ws", nil)
@@ -35,7 +38,7 @@ func Test_ClientWs(t *testing.T) {
 
 		time.Sleep(time.Millisecond)
 
-		msg := protocol.NewDefaultMessage()
+		msg := factory.NewDefaultMessage()
 		msg.SetCmd(consts.CmdAuth)
 		msg.SetBody([]byte(fmt.Sprintf(`{"uid":"%v","os":"%v"}`, uid, os)))
 
@@ -55,6 +58,8 @@ func Test_ClientWs(t *testing.T) {
 				t.Error(err)
 				return
 			}
+
+			t.Log(string(data))
 
 			_, err = msg.ReadFrom(bytes2.NewReader(data))
 			if err != nil {

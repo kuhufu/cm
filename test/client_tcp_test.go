@@ -47,6 +47,8 @@ func Test_ClientTcp(t *testing.T) {
 	//	InsecureSkipVerify: true,
 	//}
 
+	factory := protocol.GetFactory(protocol.BINARY)
+
 	f := func(uid string, os string) {
 		conn, err := tls.Dial("tcp", "localhost:8080", conf)
 		if err != nil {
@@ -58,7 +60,7 @@ func Test_ClientTcp(t *testing.T) {
 
 		time.Sleep(time.Millisecond)
 
-		msg := protocol.NewDefaultMessage()
+		msg := factory.NewDefaultMessage()
 		msg.SetCmd(consts.CmdAuth)
 		msg.SetBody([]byte(fmt.Sprintf(`{"uid":"%v","os":"%v"}`, uid, os)))
 

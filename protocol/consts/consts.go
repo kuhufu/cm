@@ -18,10 +18,3 @@ const (
 	DefaultMagicNumber = 0x08
 	MaxBodyLen         = 2 * MB
 )
-
-const (
-	NONE     = 0
-	BINARY   = 1
-	JSON     = 2
-	PROTOBUF = 3
-)

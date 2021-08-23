@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/kuhufu/cm/protocol"
+	"github.com/kuhufu/cm/protocol/Interface"
 	"github.com/kuhufu/cm/protocol/consts"
 	"sync"
 	"time"
@@ -98,7 +99,7 @@ func (srv *Server) Run(addr string, opts ...Option) error {
 				}
 
 			}()
-			srv.serve(NewChannel(conn, network))
+			srv.serve(NewChannel(conn, network, srv))
 		}()
 	}
 }
@@ -130,7 +131,8 @@ func (srv *Server) serve(channel *Channel) {
 		logger.Println("auth timeout")
 	})
 
-	msg := protocol.NewMessage()
+	factory := srv.GetMsgFactory()
+	msg := factory.NewMessage()
 	for {
 		if srv.exiting() {
 			return
@@ -151,7 +153,7 @@ func (srv *Server) serve(channel *Channel) {
 				return
 			}
 
-			channel.EnterOutMsg(CreateReplyMessage(msg, reply.Data))
+			channel.EnterOutMsg(srv.BuildReplyMessage(msg, reply.Data))
 
 			if reply.Ok {
 				if !AuthTimer.Stop() {
@@ -194,7 +196,9 @@ func (srv *Server) readLoop(channel *Channel) {
 		logger.Println("first heartbeat timeout")
 	})
 
-	msg := protocol.NewMessage()
+	factory := srv.GetMsgFactory()
+	msg := factory.NewMessage()
+
 	for {
 		if srv.exiting() {
 			return
@@ -209,14 +213,14 @@ func (srv *Server) readLoop(channel *Channel) {
 		switch msg.Cmd() {
 		case consts.CmdPush:
 			data := srv.opts.Handler.OnReceive(channel, msg.Body())
-			channel.EnterOutMsg(CreateReplyMessage(msg, data))
+			channel.EnterOutMsg(srv.BuildReplyMessage(msg, data))
 		case consts.CmdHeartbeat:
 			if !heartbeatTimer.Stop() {
 				err = ErrHeartbeatTimeout
 				return
 			}
 			heartbeatTimer.Reset(srv.opts.HeartbeatTimeout)
-			channel.EnterOutMsg(CreateReplyMessage(msg, nil))
+			channel.EnterOutMsg(srv.BuildReplyMessage(msg, nil))
 		case consts.CmdClose:
 			return
 		default:
@@ -237,6 +241,8 @@ func (srv *Server) writeLoop(channel *Channel) {
 		channel.Close()
 	}()
 
+	factory := srv.GetMsgFactory()
+
 	for {
 		if srv.exiting() {
 			return
@@ -248,8 +254,8 @@ func (srv *Server) writeLoop(channel *Channel) {
 		case <-channel.Exit():
 			return
 		case msg := <-channel.WaitOutMsg():
-			_, err = msg.WriteTo(channel)
-			protocol.FreePoolMsg(msg)
+			_, err = msg.WriteTo(channel.Conn)
+			factory.FreePoolMsg(msg)
 			if err != nil {
 				return
 			}
@@ -298,12 +304,12 @@ func (srv *Server) Unicast(data []byte, roomId string, filters ...ChannelFilter)
 		logger.Debugf("room:%v not exist", roomId)
 	}
 
-	data = srvPushMsgBytes(data)
+	data = srv.BuildSrvPushMsgBytes(data)
 	room.Broadcast(data, filters...)
 }
 
 func (srv *Server) Multicast(data []byte, roomIds []string, filters ...ChannelFilter) {
-	data = srvPushMsgBytes(data)
+	data = srv.BuildSrvPushMsgBytes(data)
 
 	for _, id := range roomIds {
 		if room, ok := srv.cm.Get(id); ok {
@@ -313,7 +319,7 @@ func (srv *Server) Multicast(data []byte, roomIds []string, filters ...ChannelFi
 }
 
 func (srv *Server) Broadcast(data []byte, filters ...ChannelFilter) {
-	data = srvPushMsgBytes(data)
+	data = srv.BuildSrvPushMsgBytes(data)
 
 	srv.allChannels.Range(func(key, value interface{}) bool {
 		c := key.(*Channel)
@@ -335,10 +341,23 @@ func (srv *Server) GetRoom(id string) (*Room, bool) {
 	return srv.cm.Get(id)
 }
 
-func srvPushMsgBytes(data []byte) []byte {
-	msg := protocol.GetPoolMsg().SetBody(data).SetCmd(consts.CmdServerPush)
+func (srv *Server) BuildSrvPushMsgBytes(data []byte) []byte {
+	factory := srv.GetMsgFactory()
+
+	msg := factory.GetPoolMsg().SetBody(data).SetCmd(consts.CmdServerPush)
 	data = msg.Encode()
-	protocol.FreePoolMsg(msg)
+	factory.FreePoolMsg(msg)
 
 	return data
+}
+
+func (srv *Server) BuildReplyMessage(srcMsg Interface.Message, data []byte) Interface.Message {
+	factory := srv.GetMsgFactory()
+	msg := factory.GetPoolMsg()
+	msg.SetBody(data).SetCmd(srcMsg.Cmd()).SetRequestId(srcMsg.RequestId())
+	return msg
+}
+
+func (srv *Server) GetMsgFactory() *protocol.MsgProtoFactory {
+	return srv.opts.MsgFactory
 }

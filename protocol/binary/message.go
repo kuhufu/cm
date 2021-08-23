@@ -64,14 +64,20 @@ type Message struct {
 	body []byte
 }
 
-func NewMessage() *Message {
+func NewMessage() Interface.Message {
 	return &Message{
 		body: nil,
 	}
 }
 
-func NewDefaultMessage() *Message {
-	message := NewMessage()
+func newMessage() *Message {
+	return &Message{
+		body: nil,
+	}
+}
+
+func NewDefaultMessage() Interface.Message {
+	message := newMessage()
 	message.SetHeaderLen(DefaultHeaderLen)
 	message.SetMagicNumber(DefaultMagicNumber)
 	return message
@@ -234,7 +240,7 @@ func (m *Message) Encode() []byte {
 }
 
 func Read(r io.Reader) (*Message, error) {
-	message := NewMessage()
+	message := newMessage()
 
 	err := message.Decode(r)
 	if err != nil {

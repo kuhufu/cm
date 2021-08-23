@@ -1,14 +1,9 @@
 package binary
 
 import (
-	"github.com/kuhufu/cm/protocol/consts"
-	"github.com/kuhufu/cm/protocol/global"
+	"github.com/kuhufu/cm/protocol/Interface"
 	"sync"
 )
-
-func init() {
-	global.Protocol = consts.BINARY
-}
 
 var pool = sync.Pool{
 	New: func() interface{} {
@@ -16,11 +11,11 @@ var pool = sync.Pool{
 	},
 }
 
-func GetPoolMsg() *Message {
+func GetPoolMsg() Interface.Message {
 	msg := pool.Get().(*Message)
 	return msg
 }
 
-func FreePoolMsg(msg interface{}) {
+func FreePoolMsg(msg Interface.Message) {
 	pool.Put(msg)
 }

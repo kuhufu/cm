@@ -3,6 +3,7 @@ package test
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/server"
 	_ "net/http/pprof"
 	"testing"
@@ -39,23 +40,33 @@ func (h Handler) OnClose(conn *server.Channel) {
 }
 
 func Test_Server(t *testing.T) {
-	srv := server.NewServer(
+	binarySrv := server.NewServer(
 		server.WithHandler(&Handler{}),
 		server.WithAuthTimeout(time.Second*1000),
 		server.WithHeartbeatTimeout(time.Second*300),
 		server.WithDebugLog(),
 		server.WithCertAndKeyFile("cert/cert.pem", "cert/key.pem"),
+		server.WithMsgProtocol(protocol.BINARY),
 	)
 
 	go func() {
-		err := srv.Run("wss://0.0.0.0:8081/ws")
+		err := binarySrv.Run("tcp://0.0.0.0:8080")
 		if err != nil {
 			t.Error(err)
 		}
 	}()
 
+	jsonSrv := server.NewServer(
+		server.WithHandler(&Handler{}),
+		server.WithAuthTimeout(time.Second*1000),
+		server.WithHeartbeatTimeout(time.Second*300),
+		server.WithDebugLog(),
+		server.WithCertAndKeyFile("cert/cert.pem", "cert/key.pem"),
+		server.WithMsgProtocol(protocol.JSON),
+	)
+
 	go func() {
-		err := srv.Run("tcp://0.0.0.0:8080")
+		err := jsonSrv.Run("wss://0.0.0.0:8081/ws")
 		if err != nil {
 			t.Error(err)
 		}
@@ -65,7 +76,12 @@ func Test_Server(t *testing.T) {
 		for {
 			time.Sleep(time.Second)
 			bytes := []byte("hello world")
-			srv.Broadcast(bytes, func(channel *server.Channel) bool {
+
+			binarySrv.Broadcast(bytes, func(channel *server.Channel) bool {
+				return channel.Id() == "web"
+			})
+
+			jsonSrv.Broadcast(bytes, func(channel *server.Channel) bool {
 				return channel.Id() == "web"
 			})
 		}

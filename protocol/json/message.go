@@ -1,12 +1,14 @@
 package json
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"github.com/kuhufu/cm/protocol/Interface"
 	"github.com/kuhufu/cm/transport"
 	"io"
+	"io/ioutil"
 )
 
 const (
@@ -30,11 +32,15 @@ type MessageV1 struct {
 	Message
 }
 
-func NewMessage() *MessageV1 {
+func NewMessage() Interface.Message {
 	return &MessageV1{}
 }
 
-func NewDefaultMessage() *MessageV1 {
+func newMessage() *MessageV1 {
+	return &MessageV1{}
+}
+
+func NewDefaultMessage() Interface.Message {
 	return &MessageV1{
 		Message: Message{
 			MagicNumber: DefaultMagicNumber,
@@ -54,6 +60,8 @@ func (m *MessageV1) ReadFrom(r io.Reader) (int64, error) {
 	switch r := r.(type) {
 	case transport.BlockConn:
 		data, err = r.ReadBlock()
+	case *bytes.Reader:
+		data, err = ioutil.ReadAll(r)
 	default:
 		msgLenBytes := make([]byte, MsgLen)
 		n, err = r.Read(msgLenBytes)

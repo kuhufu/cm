@@ -1,14 +1,9 @@
 package json
 
 import (
-	"github.com/kuhufu/cm/protocol/consts"
-	"github.com/kuhufu/cm/protocol/global"
+	"github.com/kuhufu/cm/protocol/Interface"
 	"sync"
 )
-
-func init() {
-	global.Protocol = consts.JSON
-}
 
 var pool = sync.Pool{
 	New: func() interface{} {
@@ -16,11 +11,14 @@ var pool = sync.Pool{
 	},
 }
 
-func GetPoolMsg() *MessageV1 {
+func GetPoolMsg() Interface.Message {
 	msg := pool.Get().(*MessageV1)
 	return msg
 }
 
-func FreePoolMsg(msg interface{}) {
+func FreePoolMsg(msg Interface.Message) {
+	if _, ok := msg.(*MessageV1); !ok {
+		panic("ddddddddddd")
+	}
 	pool.Put(msg)
 }
