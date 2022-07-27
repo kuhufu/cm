@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = ".;protobuf";
+option go_package = ".;json";
 
 enum Cmd {
   Unknown = 0;
