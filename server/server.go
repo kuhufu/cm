@@ -302,6 +302,7 @@ func (srv *Server) Unicast(data []byte, roomId string, filters ...ChannelFilter)
 
 	if room, ok = srv.cm.Get(roomId); !ok {
 		logger.Debugf("room:%v not exist", roomId)
+		return
 	}
 
 	data = srv.BuildSrvPushMsgBytes(data)
