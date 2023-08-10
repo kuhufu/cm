@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/protocol/consts"
-	"io/ioutil"
+	"io"
 	"log"
 	"testing"
 	"time"
@@ -29,7 +29,7 @@ func Test_ClientWs(t *testing.T) {
 
 		fmt.Println(conn.RemoteAddr())
 
-		bytes, err := ioutil.ReadAll(response.Body)
+		bytes, err := io.ReadAll(response.Body)
 		if err != nil {
 			t.Error(err)
 		}

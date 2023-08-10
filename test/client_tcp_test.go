@@ -9,14 +9,14 @@ import (
 	"fmt"
 	"github.com/kuhufu/cm/protocol"
 	"github.com/kuhufu/cm/protocol/consts"
-	"io/ioutil"
 	"log"
+	"os"
 	"testing"
 	"time"
 )
 
 func Test_ClientTcp(t *testing.T) {
-	pemData, err := ioutil.ReadFile("cert/cert.pem")
+	pemData, err := os.ReadFile("cert/cert.pem")
 	if err != nil {
 		panic(err)
 	}
